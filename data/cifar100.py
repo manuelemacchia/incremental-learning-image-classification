@@ -171,3 +171,6 @@ class CIFAR100(VisionDataset):
                 test_indices[i].extend(idx)
 
         return test_indices
+
+    def debug_labels(self):
+        print(self.labels[:100])
