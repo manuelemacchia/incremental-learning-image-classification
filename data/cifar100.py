@@ -83,6 +83,22 @@ class CIFAR100(VisionDataset):
         """Return the indices of data belonging to the specified label."""
         return np.where(self.labels==label)[0]
 
+    def map_labels(self, label_map):
+        """Change dataset labels with a label map.
+        
+        Args:
+            label_map (dict): dictionary mapping all original CIFAR100 labels
+                to custom labels.
+
+                e.g., {0: custom_label_0, ..., 99: custom_label_99}
+        """
+
+        self.label_map = label_map
+
+        np.vectorize(lambda x: self.label_map[x])(self.labels)
+
+        # @todo: also change the order of self.label_names
+
     def class_splits(self, steps=10, random_state=None):
         """Split the classes in several sets of equal length and return them."""
         rs = np.random.RandomState(random_state)
