@@ -95,7 +95,7 @@ class CIFAR100(VisionDataset):
 
         self.label_map = label_map
 
-        np.vectorize(lambda x: self.label_map[x])(self.labels)
+        self.labels = np.vectorize(lambda x: self.label_map[x])(self.labels)
 
         # @todo: also change the order of self.label_names
 
