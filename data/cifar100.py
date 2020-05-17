@@ -101,6 +101,7 @@ class CIFAR100(VisionDataset):
 
     def class_splits(self, steps=10, random_state=None):
         """Split the classes in several sets of equal length and return them."""
+
         rs = np.random.RandomState(random_state)
 
         idx = np.arange(len(self.label_names))
@@ -143,14 +144,14 @@ class CIFAR100(VisionDataset):
             for c in split:
                 # For each class, split the data into train and test
                 idx = self.get_class(c)
-                train_idx, val_idx = train_test_split(idx.tolist(), test_size=val_size)
+                train_idx, val_idx = train_test_split(idx.tolist(), test_size=val_size, random_state=random_state)
 
                 train_indices[i].extend(train_idx)
                 val_indices[i].extend(val_idx)
 
         return train_indices, val_indices
 
-    def test_split(self, class_splits, random_state=None):
+    def test_split(self, class_splits):
         """Perform a train validation split on the dataset.
 
         Args:
