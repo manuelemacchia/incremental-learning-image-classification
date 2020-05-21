@@ -2,10 +2,14 @@ import numpy as np
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.metrics import confusion_matrix
 
 import torch
 import torchvision
 
+DPI = 100
 
 def image_grid(images, one_channel=False):
     """Show an image grid.
@@ -16,6 +20,7 @@ def image_grid(images, one_channel=False):
             show images in RGB (in this case, images tensor should contain
             three channels per image)
     """
+
     img_grid = torchvision.utils.make_grid(images)
 
     if one_channel:
@@ -42,7 +47,7 @@ def train_val_scores(train_loss, train_accuracy, validation_loss, validation_acc
             directory
     """
 
-    fig, axes = plt.subplots(1, 2, figsize=[15, 5])
+    fig, axes = plt.subplots(1, 2, figsize=[15, 5], dpi=DPI)
 
     x = np.arange(10, 101, 10)
 
@@ -88,7 +93,7 @@ def test_scores(test_accuracy, save_directory=None):
             directory
     """
 
-    fig, ax = plt.subplots(1, 1, figsize=[15, 5])
+    fig, ax = plt.subplots(figsize=[15, 5], dpi=DPI)
 
     x = np.arange(10, 101, 10)
 
@@ -109,4 +114,13 @@ def test_scores(test_accuracy, save_directory=None):
     if save_directory != None:
         fig.savefig(save_directory)
 
+    plt.show()
+
+def heatmap_cm(targets, preds):
+    """Confusion matrix heatmap"""
+
+    cm = confusion_matrix(targets, preds)
+
+    fig, ax = plt.subplots(figsize=(5, 5), dpi=DPI)
+    ax = sns.heatmap(cm, square=True)
     plt.show()
