@@ -116,11 +116,11 @@ def test_scores(test_accuracy, save_directory=None):
 
     plt.show()
 
-def heatmap_cm(targets, preds):
+def heatmap_cm(targets, preds, annotated = None):
     """Confusion matrix heatmap"""
 
     cm = confusion_matrix(targets, preds)
 
     fig, ax = plt.subplots(figsize=(5, 5), dpi=DPI)
-    ax = sns.heatmap(cm, square=True)
+    ax = sns.heatmap(cm, square=True, cmap = 'Blues', annot=annotated)
     plt.show()
