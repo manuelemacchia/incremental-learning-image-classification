@@ -1,4 +1,4 @@
-from torchvision.datasets import VisionDataset
+from torchvision.datasets import VisionDataset, CIFAR100
 
 from sklearn.model_selection import train_test_split
 
@@ -9,52 +9,73 @@ import pickle
 
 from PIL import Image
 import numpy as np
+import pandas as pd
 
-class CIFAR100(VisionDataset):
+CLASS_BATCH_SIZE = 10
+
+class Cifar100(VisionDataset):
     """CIFAR-100 dataset handler.
-    
+
     Args:
         root (string): Root directory of the dataset where directory
             cifar-100-python exists.
-        split (string, optional): If 'train', creates dataset from training
-            set, otherwise creates from test set.
+        train (boolean): If True, creates dataset from training set, otherwise
+            creates from test set.
+        download (boolean): If True, download dataset.
+        random_state(integer): Random seed used to define class splits.
         transform (callable, optional): A function/transform that takes in a
             PIL image and returns a transformed version.
     """
 
-    base_folder = 'cifar-100-python'
+    def __init__(self, root, train, download, random_state, transform=None):
+        super(Cifar100, self).__init__(root, transform=transform)
+        self.dataset = CIFAR100(root=root, train=train,
+                                download=download, transform=transform)
 
-    train_filename = 'train'
-    test_filename = 'test'
-    meta_filename = 'meta'
+        self.labels = np.array(self.dataset.targets)
+        self.data = self.dataset.data
 
-    def __init__(self, root, split='train', transform=None):
-        super(CIFAR100, self).__init__(root, transform=transform)
+        # Use class_batches(k:[batch labels]) to build k-th split dataset
+        self.batch_splits = self.class_batches(random_state)
 
-        self.split = split
+    def make_batch_dataset(self, batch_idx):
+        """Args:
+                batch_idx = list with ten class labels of the batch
+        """
 
-        if split == 'train':
-            filename = self.train_filename
-        else:
-            filename = self.test_filename
-        
-        # @todo: add integrity checks
-        data_path = os.path.join(self.root, self.base_folder, filename)
+        mask = np.in1d(self.labels, batch_idx)
+        # reduce dataset to the batch of interest
+        self.batch_data = self.data[mask]
+        self.batch_labels = self.labels[mask]
 
-        with open(data_path, 'rb') as f:
-            entry = pickle.load(f, encoding='latin1')
-            self.data = entry['data']
-            self.labels = entry['fine_labels']
-        
-        self.data = np.vstack(self.data).reshape(-1, 3, 32, 32)
-        self.data = self.data.transpose((0, 2, 3, 1))  # Convert to HWC
-        
-        self.labels = np.array(self.labels)
+    def class_batches(self, random_state):
+        # {0:None, 1:None, ... , 9:None}
+        batch_splits = dict.fromkeys(np.arange(0, CLASS_BATCH_SIZE))
 
-        meta_path = os.path.join(self.root, self.base_folder, self.meta_filename)
-        with open(meta_path, 'rb') as f:
-            meta = pickle.load(f, encoding='latin1')
-            self.label_names = meta['fine_label_names']
+        rs = np.random.RandomState(random_state)
+        random_labels = list(range(0,  100))  # [0-99] labels
+        rs.shuffle(random_labels)  # randomly shuffle the labels
+
+        for i in range(CLASS_BATCH_SIZE):
+            # Take 10-sized label batches and define the class splits
+            # {0:[1-st split classes], 1:[...], ... , 99:[...]}
+            batch_splits[i] = random_labels[i *
+                                            CLASS_BATCH_SIZE: (i+1)*CLASS_BATCH_SIZE]
+
+        # Label mapping
+        self.label_map = {k: v for v, k in enumerate(random_labels)}
+
+        return batch_splits
+
+    def train_val_split(self, val_size, random_state):
+        len_dataset = len(self.batch_labels)
+        indices = list(range(len_dataset))
+        split = int(np.floor(val_size * len_dataset))
+        rs = np.random.RandomState(random_state)  # seed the generator
+        # shuffle indices to get balanced distribution in training and validation set
+        rs.shuffle(indices)
+        train_indices, val_indices = indices[split:], indices[:split]
+        return train_indices, val_indices
 
     def __getitem__(self, index):
         """Access an element through its index.
@@ -66,112 +87,20 @@ class CIFAR100(VisionDataset):
             tuple: (image, label) where label is index of the target class.
         """
 
-        image, label = self.data[index], self.labels[index]
+        image = self.batch_data[index]
+        label = self.batch_labels[index]
 
-        image = Image.fromarray(image) # Return a PIL image
+        image = Image.fromarray(image)  # Return a PIL image
 
+        # Applies preprocessing when accessing the image
         if self.transform is not None:
             image = self.transform(image)
 
-        return image, label
+        mapped_label = self.label_map[label]
+
+        return image, mapped_label
 
     def __len__(self):
         """Returns the length of the dataset."""
-        return len(self.data)
-
-    def get_class(self, label):
-        """Return the indices of data belonging to the specified label."""
-        return np.where(self.labels==label)[0]
-
-    def map_labels(self, label_map):
-        """Change dataset labels with a label map.
         
-        Args:
-            label_map (dict): dictionary mapping all original CIFAR100 labels
-                to custom labels.
-
-                e.g., {0: custom_label_0, ..., 99: custom_label_99}
-        """
-
-        self.label_map = label_map
-
-        self.labels = np.vectorize(lambda x: self.label_map[x])(self.labels)
-
-        # @todo: also change the order of self.label_names
-
-    def class_splits(self, steps=10, random_state=None):
-        """Split the classes in several sets of equal length and return them."""
-
-        rs = np.random.RandomState(random_state)
-
-        idx = np.arange(len(self.label_names))
-        rs.shuffle(idx)
-
-        splits = np.split(idx, steps)
-
-        return splits
-
-    def train_val_split(self, class_splits, val_size=0.5, random_state=None):
-        """Perform a train and validation split based on given class splits.
-
-        Args:
-            class_splits (list): class split returned by self.class_splits
-            val_size (int, float or None): size of the validation set.                
-
-        Returns:
-            tuple: (train_indices, val_indices) where each element in the tuple
-                is a list of lists.
-
-                train_indices is a list of len(class_splits) lists. Each inner
-                list contains the training indices belonging to a class split.
-                val_indices, analogously, contains the validation indices
-                belonging to a class split.
-
-                e.g., [[0, 1, 2, 3, ..., 99],             <- first class split
-                       [100, 101, 12, 103, ..., 199],     <- second class split
-                       [200, 201, 22, 203, ..., 299],
-                       ...
-                       [900, 901, 902, 903, ..., 999]]    <- last class split
-        """
-
-        train_indices = []
-        val_indices = []
-
-        for i, split in enumerate(class_splits):
-            train_indices.append([])
-            val_indices.append([])
-
-            for c in split:
-                # For each class, split the data into train and test
-                idx = self.get_class(c)
-                train_idx, val_idx = train_test_split(idx.tolist(), test_size=val_size, random_state=random_state)
-
-                train_indices[i].extend(train_idx)
-                val_indices[i].extend(val_idx)
-
-        return train_indices, val_indices
-
-    def test_split(self, class_splits):
-        """Perform a train validation split on the dataset.
-
-        Args:
-            class_splits (int): class split returned by self.class_splits
-            val_size (int, float or None): size of the validation set.                
-
-        Returns:
-            test_indices (list): A list of lists. Analogous to train_test_split.
-        """
-
-        test_indices = []
-
-        for i, split in enumerate(class_splits):
-            test_indices.append([])
-
-            for c in split:
-                idx = self.get_class(c)
-                test_indices[i].extend(idx)
-
-        return test_indices
-
-    def debug_labels(self):
-        print(self.labels[:100])
+        return len(self.batch_data)
