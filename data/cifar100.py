@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from torchvision import transforms
 from torchvision import datasets
+from PIL import Image
 
 CLASS_BATCH_SIZE = 10
 
