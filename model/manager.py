@@ -1,4 +1,6 @@
-# @todo: put in model package once finished
+import torch
+import torch.nn as nn
+from torch.backends import cudnn
 
 class Manager():
     """Manage training, validation and testing of a neural network.
