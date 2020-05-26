@@ -61,7 +61,7 @@ class Manager():
         self.net.to(self.device)
         cudnn.benchmark  # Calling this optimizes runtime
 
-        self.best_loss = 1e-2
+        self.best_loss = float('inf')
         self.best_epoch = 0
 
         for epoch in range(num_epochs):
