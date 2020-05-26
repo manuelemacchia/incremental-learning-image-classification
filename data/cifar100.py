@@ -6,7 +6,7 @@ from torchvision import datasets
 CLASS_BATCH_SIZE = 10
 
 
-class Dataset(torch.utils.data.Dataset):
+class Cifar100(torch.utils.data.Dataset):
     def __init__(self, root, train, download, random_state, transform=None):
         self.train = train
         self.transform = transform
