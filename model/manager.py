@@ -61,7 +61,7 @@ class Manager():
         self.net.to(self.device)
         cudnn.benchmark  # Calling this optimizes runtime
 
-        self.best_accuracy = 0.0
+        self.best_loss = 1e-2
         self.best_epoch = 0
 
         for epoch in range(num_epochs):
@@ -71,10 +71,9 @@ class Manager():
             # Validate after each epoch 
             val_loss, val_accuracy = self.validate()    
 
-            # @todo: This is wrong! the best model minimizes loss
             # Best validation model
-            if val_accuracy > self.best_accuracy:
-                self.best_accuracy = val_accuracy
+            if val_loss < self.best_loss:
+                self.best_loss = val_loss
                 self.best_net = self.net
                 self.best_epoch = epoch
                 print("Best model updated")
