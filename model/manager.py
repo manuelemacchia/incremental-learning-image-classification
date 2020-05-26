@@ -42,14 +42,12 @@ class Manager():
         self.net.fc = nn.Linear(in_features, out_features+n)
         self.net.fc.weight.data[:out_features] = weight
 
-    def train(self, num_epochs, epoch_validate=True):
-        """Train the network for a specified number of epochs.
+    def train(self, num_epochs):
+        """Train the network for a specified number of epochs, and save
+        the best performing model on the validation set.
         
         Args:
             num_epochs (int): number of epochs for training the network.
-            epoch_validate (bool): if True, perform validation on the validation
-                set after each epoch, and save the network with the highest
-                accuracy on the validation set to be used for testing.
 
         Returns:
             train_loss: loss computed on the last epoch
@@ -58,7 +56,6 @@ class Manager():
             val_accuracy: accuracy on the validation set of the last epoch
         """
 
-        # @todo: implement epoch_validate logic. Right now, the code behaves as if =True
         # @todo: is the return behaviour intended? (scores of the last epoch)
 
         self.net.to(self.device)
@@ -74,6 +71,7 @@ class Manager():
             # Validate after each epoch 
             val_loss, val_accuracy = self.validate()    
 
+            # @todo: This is wrong! the best model minimizes loss
             # Best validation model
             if val_accuracy > self.best_accuracy:
                 self.best_accuracy = val_accuracy
@@ -206,14 +204,8 @@ class Manager():
 
         return (val_loss, val_accuracy)
 
-    def test(self, best_validated_net=True):
+    def test(self):
         """Test the model.
-
-        Args:
-            best_validated_net (float): if True, test on the best model
-                found in validation (self.best_net)
-                Otherwise, test on the latest model generated in training
-                (self.net).
 
         Returns:
             accuracy (float): accuracy of the model on the test set
