@@ -210,8 +210,6 @@ class Manager():
             accuracy (float): accuracy of the model on the test set
         """
 
-        # @todo: implement best_validated_net logic
-
         self.best_net.train(False)  # Set Network to evaluation mode
 
         running_corrects = 0
@@ -226,7 +224,7 @@ class Manager():
             total += labels.size(0)
 
             # Forward Pass
-            outputs = self.net(images)
+            outputs = self.best_net(images)
             loss = self.criterion(outputs, labels)
 
             # Get predictions
