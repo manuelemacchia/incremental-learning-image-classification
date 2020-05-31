@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.backends import cudnn
+from copy import deepcopy
 
 class Manager():
     """Manage training, validation and testing of a neural network.
@@ -42,13 +43,22 @@ class Manager():
         self.net.fc = nn.Linear(in_features, out_features+n)
         self.net.fc.weight.data[:out_features] = weight
 
+    def to_onehot(self, targets): 
+      '''
+      Args:
+      targets : dataloader.dataset.targets of the new task images
+      '''
+      num_classes = self.net.fc.out_features
+      one_hot_targets = torch.eye(num_classes)[targets]
+
+      return one_hot_targets.to(self.device)
+
     def train(self, num_epochs):
         """Train the network for a specified number of epochs, and save
         the best performing model on the validation set.
         
         Args:
             num_epochs (int): number of epochs for training the network.
-
         Returns:
             train_loss: loss computed on the last epoch
             train_accuracy: accuracy computed on the last epoch
@@ -61,7 +71,7 @@ class Manager():
         self.net.to(self.device)
         cudnn.benchmark  # Calling this optimizes runtime
 
-        self.best_loss = float('inf')
+        self.best_accuracy = 0
         self.best_epoch = 0
 
         for epoch in range(num_epochs):
@@ -72,9 +82,9 @@ class Manager():
             val_loss, val_accuracy = self.validate()    
 
             # Best validation model
-            if val_loss < self.best_loss:
-                self.best_loss = val_loss
-                self.best_net = self.net
+            if val_accuracy > self.best_accuracy:
+                self.best_accuracy = val_accuracy
+                self.best_net = deepcopy(self.net)
                 self.best_epoch = epoch
                 print("Best model updated")
 
@@ -88,7 +98,6 @@ class Manager():
         
         Args:
             current_epoch (int): current epoch number (begins from 1)
-
         Returns:
             train_loss: average training loss over all batches of the
                 current epoch.
@@ -119,7 +128,7 @@ class Manager():
         train_loss = running_train_loss / batch_idx # Average over all batches
         train_accuracy = running_corrects / float(total) # Average over all samples
 
-        print(f"Train loss: {train_loss}, train accuracy: {train_accuracy}")
+        print(f"Train loss: {train_loss}, Train accuracy: {train_accuracy}")
 
         return (train_loss, train_accuracy)
 
@@ -142,9 +151,13 @@ class Manager():
         # Zero-ing the gradients
         self.optimizer.zero_grad() 
 
-        # Forward pass
-        outputs = self.net(batch)
-        loss = self.criterion(outputs, labels)
+        # One hot encoding of new task labels 
+        one_hot_labels = self.to_onehot(labels) # Size = [128, 10]
+
+        # New net forward pass
+        outputs = self.net(batch)  
+        
+        loss = self.criterion(outputs, one_hot_labels) # BCE Loss with sigmoids over outputs
 
         # Get predictions
         _, preds = torch.max(outputs.data, 1)
@@ -182,9 +195,12 @@ class Manager():
             labels = labels.to(self.device)
             total += labels.size(0)
 
-            # Forward pass
-            outputs = self.net(images)
-            loss = self.criterion(outputs, labels)
+            # One hot encoding of new task labels 
+            one_hot_labels = self.to_onehot(labels) # Size = [128, 10]
+            # New net forward pass
+            outputs = self.net(images)  
+            loss = self.criterion(outputs, one_hot_labels) # BCE Loss with sigmoids over outputs
+
             running_val_loss += loss.item()
 
             # Get predictions
@@ -199,13 +215,12 @@ class Manager():
         val_loss = running_val_loss / batch_idx
         val_accuracy = running_corrects / float(total)
 
-        print(f"Validation loss: {val_loss}, validation accuracy: {val_accuracy}")
+        print(f"Validation loss: {val_loss}, Validation accuracy: {val_accuracy}")
 
         return (val_loss, val_accuracy)
 
     def test(self):
         """Test the model.
-
         Returns:
             accuracy (float): accuracy of the model on the test set
         """
@@ -225,7 +240,6 @@ class Manager():
 
             # Forward Pass
             outputs = self.best_net(images)
-            loss = self.criterion(outputs, labels)
 
             # Get predictions
             _, preds = torch.max(outputs.data, 1)
