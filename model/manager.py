@@ -42,6 +42,11 @@ class Manager():
 
         self.net.fc = nn.Linear(in_features, out_features+n)
         self.net.fc.weight.data[:out_features] = weight
+    
+    def output_neurons_count(self):
+        """Return the number of output neurons of the current network."""
+
+        return self.net.fc.out_features
 
     def to_onehot(self, targets): 
       '''
