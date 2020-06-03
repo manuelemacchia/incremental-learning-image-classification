@@ -31,6 +31,11 @@ class Manager():
         self.val_dataloader = val_dataloader
         self.test_dataloader = test_dataloader
 
+    def set_test_dataloader(self, test_dataloader):
+        """Update test dataset."""
+
+        self.test_dataloader = test_dataloader
+
     # @todo: do we already initialize to 100 output nodes, as in the iCaRL paper?
     # if so, is increment_classes needed?
     def increment_classes(self, n=10):
