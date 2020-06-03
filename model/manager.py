@@ -81,7 +81,7 @@ class Manager():
         self.net.to(self.device)
         cudnn.benchmark  # Calling this optimizes runtime
 
-        self.best_accuracy = 0
+        self.best_accuracy = 0 # @todo: should we use best_loss instead?
         self.best_epoch = 0
 
         for epoch in range(num_epochs):
