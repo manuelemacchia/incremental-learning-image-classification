@@ -31,10 +31,22 @@ class Manager():
         self.val_dataloader = val_dataloader
         self.test_dataloader = test_dataloader
 
-    def set_test_dataloader(self, test_dataloader):
-        """Update test dataset."""
+    def set_dataloaders(self, train_dataloader=None, val_dataloader=None, test_dataloader=None):
+        """Update dataloaders.
+        
+        Args:
+            train_dataloader, val_dataloader, test_dataloader: if not None,
+                update the respective dataloader.
+        """
 
-        self.test_dataloader = test_dataloader
+        if train_dataloader is not None:
+            self.train_dataloader = train_dataloader
+
+        if val_dataloader is not None:
+            self.val_dataloader = val_dataloader
+        
+        if test_dataloader is not None:
+            self.test_dataloader = test_dataloader
 
     # @todo: do we already initialize to 100 output nodes, as in the iCaRL paper?
     # if so, is increment_classes needed?
