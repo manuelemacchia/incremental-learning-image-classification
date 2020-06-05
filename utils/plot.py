@@ -53,17 +53,17 @@ def train_val_scores(train_loss, train_accuracy, validation_loss, validation_acc
 
     # Use errorbar to plot the standard deviation between different runs
     axes[0].errorbar(x, np.array(train_loss)[:, 0], np.array(train_loss)[:, 1],
-                     color='#2E84D5', linewidth=2.5, label='Training')
+                     color='#2E84D5', linestyle = '-', linewidth=2.5, marker = ".", label='Training')
     axes[0].errorbar(x, np.array(validation_loss)[:, 0], np.array(validation_loss)[:, 1],
-                     color='#FF9232', linewidth=2.5, label='Validation')
+                     color='#FF9232', linestyle = '-', linewidth=2.5, marker = ".", label='Validation')
     axes[0].set_title("Training and validation loss")
     axes[0].set_xlabel("Number of classes")
     axes[0].set_ylabel("Loss")
 
     axes[1].errorbar(x, np.array(train_accuracy)[:, 0], np.array(train_accuracy)[:, 1],
-                     color='#2E84D5', linewidth=2.5, label='Training')
+                     color='#2E84D5', linestyle = '-', linewidth=2.5, marker = ".", label='Training')
     axes[1].errorbar(x, np.array(validation_accuracy)[:, 0], np.array(validation_accuracy)[:, 1],
-                     color='#FF9232', linewidth=2.5, label='Validation')
+                     color='#FF9232', linestyle = '-', linewidth=2.5, marker = ".", label='Validation')
     axes[1].set_title("Training and validation accuracy")
     axes[1].set_xlabel("Number of classes")
     axes[1].set_ylabel("Accuracy")
@@ -99,7 +99,7 @@ def test_scores(test_accuracy, save_directory=None):
 
     # Use errorbar to plot the standard deviation between different runs
     ax.errorbar(x, np.array(test_accuracy)[:, 0], np.array(test_accuracy)[:, 1],
-                  color='#2E84D5', linewidth=2.5)
+                  color='#2E84D5', linestyle = '-', linewidth=2.5, marker = ".")
     ax.set_title("Test accuracy")
     ax.set_xlabel("Number of classes")
     ax.set_ylabel("Accuracy")
