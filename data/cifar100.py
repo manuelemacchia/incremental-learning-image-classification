@@ -11,11 +11,13 @@ class Cifar100(torch.utils.data.Dataset):
     def __init__(self, root, train, download, random_state, transform=None):
         self.train = train
         self.transform = transform
+        self.is_transform_enabled = True
+
         self.dataset = datasets.cifar.CIFAR100(
             root=root,
             train=train,
             download=download,
-            transform=self.transform)
+            transform=None)
 
         self.targets = np.array(self.dataset.targets)
         self.batch_splits = self.class_batches(random_state) # Use class_batches(k:[batch labels]) to build k-th split dataset
@@ -85,11 +87,20 @@ class Cifar100(torch.utils.data.Dataset):
 
         image = Image.fromarray(image) # Return a PIL image
 
-        # Applies preprocessing when accessing the image
-        if self.transform is not None:
+        # Applies preprocessing when accessing the image if transformations are currently enabled
+        if (self.transform is not None) and (self.is_transform_enabled is True):
             image = self.transform(image)
 
         mapped_label = self.label_map[label]
 
 
         return image, mapped_label
+
+    def enable_transform(self):
+        self.is_transform_enabled = True
+
+    def disable_transform(self):
+        self.is_transform_enabled = False
+
+    def transform_status(self):
+        return self.is_transform_enabled
