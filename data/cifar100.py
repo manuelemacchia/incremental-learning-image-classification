@@ -56,7 +56,7 @@ class Cifar100(torch.utils.data.Dataset):
         return batch_splits
     
 
-    def set_examplars(self, idxes):
+    def set_exemplars(self, idxes):
         self.batches_mapping.update({
             fake_idx: real_idx
             for fake_idx, real_idx in zip(range(len(self.batches_mapping), len(idxes)), idxes)
