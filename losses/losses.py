@@ -24,6 +24,18 @@ class FMLoss(nn.Module):
     
     loss = clf*clf_loss + dist*dist_loss
     return loss
+  
+  
+# CE-style targets (no one hot encoding)
+# Implementation of https://arxiv.org/abs/1503.02531
+class HintonLoss(nn.Module):
+  def __init__(self, weight = None, reduction = 'mean', temperature = 2):
+    self.T = temperature
+    super(HintonLoss, self).__init__()
+    
+  def forward(self, outputs, targets):
+    
+    
     
 # distillation - are all contributes needed? randomly remove some contributions to the loss
 class MyBCELoss(nn.Module):
