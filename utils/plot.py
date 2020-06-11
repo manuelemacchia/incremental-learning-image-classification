@@ -33,7 +33,7 @@ def image_grid(images, one_channel=False):
         plt.imshow(np.transpose(npimg, (1, 2, 0)))
 
 
-def train_val_scores(train_loss, train_accuracy, validation_loss, validation_accuracy, save_directory):
+def train_val_scores(train_loss, train_accuracy, validation_loss, validation_accuracy, save_directory=None):
     """Plot loss and accuracy for training and validation
 
     The plot contains two axes:
