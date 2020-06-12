@@ -50,22 +50,30 @@ class DKHLoss(nn.Module):
     # outputs.size() = [batch_size, num_classes]
     # targets.size() = [batch_size, 1]
     
-    old_outputs = outputs[:, 0:-10]
-    old_targets = targets[0:-10, :]
+   def forward(outputs, targets):
+    """Computes the distillation loss (cross-entropy).
+       xentropy(y, t) = kl_div(y, t) + entropy(t)
+       entropy(t) does not contribute to gradient wrt y, so we skip that.
+       Thus, loss value is slightly different, but gradients are correct.
+       \delta_y{xentropy(y, t)} = \delta_y{kl_div(y, t)}.
+       scale is required as kl_div normalizes by nelements and not batch size.
+    """
+    # outputs.size() = [batch_size, num_classes]
+    # targets.size() = [batch_size, 1]
+    
+    old_outputs = outputs[:, :-10] # old_classes outputs
+    old_targets = targets[:, :-10] # old_net_outputs
     
     new_outputs = outputs[:, -10:]
-    new_targets = targets[-10:, :]
-    
-    clf_criterion = nn.CrossEntropy(reduction = 'none')
-    dist_criterion = nn.KLDivLoss(reduction = 'none')
-    
+    one_hot_labels = targets[:, -10:]
+
     softmax = nn.Softmax() # softmax(targets)
-    log_softmax = nn.LogSoftmax() # log_softmax(outputs). We prefer LogSoftmax instead of softmax to have harsher punishment of errors
+    log_softmax = nn.LogSoftmax()
     
-    clf_loss = clf_criterion(new_outputs, new_targets)
-    dist_loss = dist_criterion(old_outputs/self.T, old_targets/self.T)
+    clf_loss = torch.sum(-one_hot_labels*torch.log(softmax(new_outputs)), dim = 0)
+    dist_loss = torch.sum(-softmax(old_targets/2)*(log_softmax(old_outputs/2)), dim =0)
     
-    loss = torch.mean(torch.cat((clf_loss, dist_loss),dim = 1), dim= 0)
+    loss = torch.mean(torch.cat((clf_loss, dist_loss),dim = 0), dim= 0)
     
     return loss
     
