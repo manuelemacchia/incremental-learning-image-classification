@@ -1,3 +1,5 @@
+import torch.nn as nn
+import torch
 
 # classification
 class FMLoss(nn.Module):
@@ -28,15 +30,47 @@ class FMLoss(nn.Module):
   
 # CE-style targets (no one hot encoding)
 # Implementation of https://arxiv.org/abs/1503.02531
-class HintonLoss(nn.Module):
+class DKHLoss(nn.Module):
+  '''
+  Distillation Knowledge Hinton Loss
+  '''
+  
   def __init__(self, weight = None, reduction = 'mean', temperature = 2):
-    self.T = temperature
+    self.T = temperature # 2 by default as in LWF paper's implementation
     super(HintonLoss, self).__init__()
     
   def forward(self, outputs, targets):
+    """Computes the distillation loss (cross-entropy).
+       xentropy(y, t) = kl_div(y, t) + entropy(t)
+       entropy(t) does not contribute to gradient wrt y, so we skip that.
+       Thus, loss value is slightly different, but gradients are correct.
+       \delta_y{xentropy(y, t)} = \delta_y{kl_div(y, t)}.
+       scale is required as kl_div normalizes by nelements and not batch size.
+    """
+    # outputs.size() = [batch_size, num_classes]
+    # targets.size() = [batch_size, 1]
+    
+    old_outputs = outputs[:, 0:-10]
+    old_targets = targets[0:-10, :]
+    
+    new_outputs = outputs[:, -10:]
+    new_targets = targets[-10:, :]
+    
+    clf_criterion = nn.CrossEntropy(reduction = 'none')
+    dist_criterion = nn.KLDivLoss(reduction = 'none')
+    
+    softmax = nn.Softmax() # softmax(targets)
+    log_softmax = nn.LogSoftmax() # log_softmax(outputs). We prefer LogSoftmax instead of softmax to have harsher punishment of errors
+    
+    clf_loss = clf_criterion(new_outputs, new_targets)
+    dist_loss = dist_criterion(old_outputs/self.T, old_targets/self.T)
+    
+    loss = torch.mean(torch.cat((clf_loss, dist_loss),dim = 1), dim= 0)
+    
+    return loss
     
     
-    
+
 # distillation - are all contributes needed? randomly remove some contributions to the loss
 class MyBCELoss(nn.Module):
   
