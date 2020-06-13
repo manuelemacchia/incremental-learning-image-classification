@@ -11,7 +11,7 @@ class Manager():
         criterion: loss function
         optimizer: optimization algorithm to change the attributes of the
             neural network, e.g., stochastic gradient descent (SGD)
-        scheduler: learning rate scheduling policy, e.g., MultiStepLR
+        scheduler: learning rate scheduling policy, i.e. MultiStepLR
         train_dataloader DataLoader instance of the training set
         val_dataloader: DataLoader instance of the validation set
         test_dataloader: DataLoader instance of the test set
@@ -48,8 +48,7 @@ class Manager():
         if test_dataloader is not None:
             self.test_dataloader = test_dataloader
 
-    # @todo: do we already initialize to 100 output nodes, as in the iCaRL paper?
-    # if so, is increment_classes needed?
+
     def increment_classes(self, n=10):
         """Add n classes in the final fully connected layer."""
 
