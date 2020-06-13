@@ -87,7 +87,6 @@ class Manager():
             val_accuracy: accuracy on the validation set of the last epoch
         """
 
-        # @todo: is the return behaviour intended? (scores of the last epoch)
 
         self.net.to(self.device)
         cudnn.benchmark  # Calling this optimizes runtime
