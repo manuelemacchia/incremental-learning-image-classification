@@ -50,8 +50,8 @@ class DKHLoss(nn.Module):
         \delta_y{xentropy(y, t)} = \delta_y{kl_div(y, t)}.
         scale is required as kl_div normalizes by nelements and not batch size.
     """
-    softmax = nn.Softmax()
-    log_softmax = nn.LogSoftmax()
+    softmax = nn.Softmax(dim=0)
+    log_softmax = nn.LogSoftmax(dim=0)
 
     loss = torch.mean(-softmax(targets/self.T)*torch.log(softmax(outputs/self.T)))
 
