@@ -27,8 +27,7 @@ class FMLoss(nn.Module):
     loss = clf*clf_loss + dist*dist_loss
     return loss
   
-  
-# CE-style targets (no one hot encoding)
+# Old outots targets are given BCE likewise
 # Implementation of https://arxiv.org/abs/1503.02531
 class DKHLoss(nn.Module):
   '''
@@ -40,30 +39,24 @@ class DKHLoss(nn.Module):
     super(DKHLoss, self).__init__()
     
   def forward(self, outputs, targets):
-    """Computes the distillation loss (cross-entropy).
+    """ Args:
+        outputs = new net outputs on old classes
+        targets = old_ne outputs on old_classes
+
+        Computes the distillation loss (cross-entropy).
         xentropy(y, t) = kl_div(y, t) + entropy(t)
         entropy(t) does not contribute to gradient wrt y, so we skip that.
         Thus, loss value is slightly different, but gradients are correct.
         \delta_y{xentropy(y, t)} = \delta_y{kl_div(y, t)}.
         scale is required as kl_div normalizes by nelements and not batch size.
     """
-    # outputs.size() = [batch_size, num_classes]
-    # targets.size() = [batch_size, 1]
+    softmax = nn.Softmax()
+    log_softmax = nn.LogSoftmax()
 
-    old_outputs = outputs[:, :-10] # old_classes outputs
-    old_targets = targets[:, :-10] # old_net_outputs
+    loss = torch.mean(-softmax(targets/self.T)*torch.log(softmax(outputs/self.T)))
 
-    new_outputs = outputs[:, -10:]
-    one_hot_labels = targets[:, -10:]
-
-    softmax = nn.Softmax(dim=0) # softmax(targets)
-    log_softmax = nn.LogSoftmax(dim=0)
-
-    clf_loss = torch.sum(-one_hot_labels*torch.log(softmax(new_outputs)), dim=1)
-    dist_loss = torch.sum(-softmax(old_targets/2)*(log_softmax(old_outputs/2)), dim=1)
+    # Try different T value to see how values changes
     
-    loss = torch.mean(torch.cat((clf_loss, dist_loss),dim = 0), dim= 0)
-
     return loss
     
     
