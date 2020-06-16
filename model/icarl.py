@@ -4,6 +4,8 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader, ConcatDataset
 from torch.backends import cudnn
 
+from torchvision import transforms
+
 from math import floor
 from copy import deepcopy
 import random
@@ -105,6 +107,9 @@ class iCaRL:
             # Number of known classes
             num_classes = len(self.exemplars)
 
+            # Define horizontal flip for PIL image
+            horizontal_flip = transforms.RandomHorizontalFlip(p=1)
+
             # Compute the means of classes with all the data available,
             # including training data which contains samples belonging to
             # the latest 10 classes. This will remove noise from the mean
@@ -125,6 +130,13 @@ class iCaRL:
                     features_list = []
 
                 for exemplar in self.exemplars[y]:
+                    # Original exemplar
+                    features = self.extract_features(exemplar, batch=False, transform=self.test_transform)
+                    features = features/features.norm() # Normalize the feature representation of the exemplar
+                    features_list.append(features)
+
+                    # Flipped version
+                    exemplar = horizontal_flip(exemplar)
                     features = self.extract_features(exemplar, batch=False, transform=self.test_transform)
                     features = features/features.norm() # Normalize the feature representation of the exemplar
                     features_list.append(features)
