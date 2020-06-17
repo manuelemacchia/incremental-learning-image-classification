@@ -70,6 +70,9 @@ class iCaRL:
         # with num_classes the number of classes seen until now by the network.
         self.exemplars = []
 
+        # @DEBUG
+        self.exemplars_rand = []
+
         # Initialize the copy of the old network, used to compute outputs of the
         # previous network for the distillation loss, to None. This is useful to
         # correctly apply the first function when training the network for the
@@ -132,6 +135,80 @@ class iCaRL:
                     features_list = []
 
                 for exemplar in self.exemplars[y]:
+                    # Original exemplar
+                    features = self.extract_features(exemplar, batch=False, transform=self.test_transform)
+                    features = features/features.norm() # Normalize the feature representation of the exemplar
+                    features_list.append(features)
+
+                    # Flipped version
+                    exemplar = horizontal_flip(exemplar)
+                    features = self.extract_features(exemplar, batch=False, transform=self.test_transform)
+                    features = features/features.norm() # Normalize the feature representation of the exemplar
+                    features_list.append(features)
+                
+                features_list = torch.stack(features_list)
+                class_means = features_list.mean(dim=0)
+                class_means = class_means/class_means.norm() # Normalize the class means
+
+                self.cached_means.append(class_means)
+            
+            self.cached_means = torch.stack(self.cached_means).to(self.device)
+            print("done")
+
+        preds = []
+        for i in range(batch_features.size(0)):
+            f_arg = torch.norm(batch_features[i] - self.cached_means, dim=1)
+            preds.append(torch.argmin(f_arg))
+        
+        return torch.stack(preds)
+    
+    # @DEBUG
+    def classify_rand(self, batch, train_dataset=None):
+        """Mean-of-exemplars classifier used to classify images into the set of
+        classes observed so far.
+
+        Args:
+            batch (torch.tensor): batch to classify
+        Returns:
+            label (int): class label assigned to the image
+        """
+
+        batch_features = self.extract_features(batch) # (batch size, 64)
+        for i in range(batch_features.size(0)):
+            batch_features[i] = batch_features[i]/batch_features[i].norm() # Normalize sample feature representation
+        batch_features = batch_features.to(self.device)
+
+        if self.cached_means is None:
+            print("Computing mean of exemplars... ", end="")
+
+            self.cached_means = []
+
+            # Number of known classes
+            num_classes = len(self.exemplars_rand)
+
+            # Define horizontal flip for PIL image
+            horizontal_flip = transforms.RandomHorizontalFlip(p=1)
+
+            # Compute the means of classes with all the data available,
+            # including training data which contains samples belonging to
+            # the latest 10 classes. This will remove noise from the mean
+            # estimate, improving the results.
+            if train_dataset is not None:
+                train_features_list = [[] for _ in range(10)]
+
+                for train_sample, label in train_dataset:
+                    features = self.extract_features(train_sample, batch=False, transform=self.test_transform)
+                    features = features/features.norm()
+                    train_features_list[label % 10].append(features)
+
+            # Compute means of exemplars for all known classes
+            for y in range(num_classes):
+                if (train_dataset is not None) and (y in range(num_classes-10, num_classes)):
+                    features_list = train_features_list[y % 10]
+                else:
+                    features_list = []
+
+                for exemplar in self.exemplars_rand[y]:
                     # Original exemplar
                     features = self.extract_features(exemplar, batch=False, transform=self.test_transform)
                     features = features/features.norm() # Normalize the feature representation of the exemplar
@@ -228,9 +305,17 @@ class iCaRL:
         for y in range(len(self.exemplars)):
             self.exemplars[y] = self.reduce_exemplar_set(self.exemplars[y], m)
 
+        # @DEBUG
+        for y in range(len(self.exemplars_rand)):
+            self.exemplars_rand[y] = self.reduce_exemplar_set(self.exemplars[y], m)
+
         # Construct exemplar set for new classes
         new_exemplars = self.construct_exemplar_set(train_dataset, m)
         self.exemplars.extend(new_exemplars)
+
+        # @DEBUG
+        new_exemplars = self.construct_exemplar_set_rand(train_dataset, m)
+        self.exemplars_rand.extend(new_exemplars)
 
         return train_logs
 
@@ -651,6 +736,67 @@ class iCaRL:
             
             with torch.no_grad():
                 preds = self.classify(images, train_dataset)
+
+            running_corrects += torch.sum(preds == labels.data).data.item()
+
+            all_preds = torch.cat(
+                (all_preds.to(self.device), preds.to(self.device)), dim=0
+            )
+
+        if train_dataset is not None: train_dataset.dataset.enable_transform()
+
+        # Calculate accuracy
+        accuracy = running_corrects / float(total)  
+
+        print(f"Test accuracy (iCaRL): {accuracy} ", end="")
+
+        if train_dataset is None:
+            print("(only exemplars)")
+        else:
+            print("(exemplars and training data)")
+
+        return accuracy, all_preds
+
+    # @DEBUG
+    def test_rand(self, test_dataset, train_dataset=None):
+        """Test the model.
+
+        Args:
+            test_dataset: dataset on which to test the network
+            train_dataset: training set used to train the last split, if
+                available
+        Returns:
+            accuracy (float): accuracy of the model on the test set
+        """
+
+        self.net.train(False)
+        if self.best_net is not None: self.best_net.train(False)  # Set Network to evaluation mode
+        if self.old_net is not None: self.old_net.train(False)
+
+        self.test_dataloader = DataLoader(test_dataset, batch_size=self.BATCH_SIZE, shuffle=True, num_workers=4)
+
+        running_corrects = 0
+        total = 0
+
+        # To store all predictions
+        all_preds = torch.tensor([])
+        all_preds = all_preds.type(torch.LongTensor)
+
+        # Clear mean of exemplars cache
+        self.cached_means = None
+        
+        # Disable transformations for train_dataset, if available, as we will
+        # need original PIL images from which to extract features.
+        if train_dataset is not None: train_dataset.dataset.disable_transform()
+
+        for images, labels in self.test_dataloader:
+            images = images.to(self.device)
+            labels = labels.to(self.device)
+
+            total += labels.size(0)
+            
+            with torch.no_grad():
+                preds = self.classify_rand(images, train_dataset)
 
             running_corrects += torch.sum(preds == labels.data).data.item()
 
