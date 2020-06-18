@@ -79,13 +79,18 @@ class BasicBlockNoReLU(nn.Module):
         return out
 
 class CosineLayer(nn.Module):
-    __constants__ = ['in_features', 'out_features', 'eta']
+    __constants__ = ['in_features', 'out_features']
 
-    def __init__(self, in_features, out_features, eta=1, bias=False):
+    in_features: int
+    out_features: int
+    weight: torch.Tensor
+    eta: torch.Tensor
+
+    def __init__(self, in_features, out_features, bias=False):
         super(CosineLayer, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.eta = eta
+        self.eta = Parameter(torch.Tensor(1))
         self.weight = Parameter(torch.Tensor(out_features, in_features))
         if bias:
             self.bias = Parameter(torch.Tensor(out_features))
@@ -101,12 +106,7 @@ class CosineLayer(nn.Module):
             nn.init.uniform_(self.bias, -bound, bound)
 
     def forward(self, input):
-        # L2 normalize
-        inp = F.normalize(input, p=2, dim=1)
-        wgt = F.normalize(self.weight, p=2, dim=1)
-
-        return self.eta * inp.matmul(wgt.t())
-        # return inp.matmul(wgt.t())
+        return self.eta * F.normalize(input, p=2, dim=1).matmul(F.normalize(self.weight, p=2, dim=1).t())
 
 
 class Bottleneck(nn.Module):
@@ -200,7 +200,7 @@ class ResNet(nn.Module):
         x = x.view(x.size(0), -1)
         
         if features:
-          return x
+            return x
 
         x = self.fc(x)
 
