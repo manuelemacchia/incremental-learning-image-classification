@@ -1,8 +1,9 @@
+import torch
 import torch.nn as nn
-import math
-import torch.utils.model_zoo as model_zoo
 from torch.nn.parameter import Parameter
 from torch.nn import functional as F
+import math
+import torch.utils.model_zoo as model_zoo
 
 """
 Credits to @hshustc
@@ -93,11 +94,11 @@ class CosineLayer(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
         if self.bias is not None:
-            fan_in, _ = init._calculate_fan_in_and_fan_out(self.weight)
+            fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
             bound = 1 / math.sqrt(fan_in)
-            init.uniform_(self.bias, -bound, bound)
+            nn.init.uniform_(self.bias, -bound, bound)
 
     def forward(self, input):
         # L2 normalize
