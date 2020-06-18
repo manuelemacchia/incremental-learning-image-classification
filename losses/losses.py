@@ -63,6 +63,44 @@ class DKHLoss(nn.Module):
     
     return loss
     
+ 
+# classification
+class LFCLoss(nn.Module):
+
+  def __init__(self, weight = None, reduction = 'mean'):
+    super(LFCLoss, self).__init__()
+
+  def forward(self, new_outputs, new_targets, old_features, new_features, num_classes):
+    '''Args:
+    outputs: torch.tensor(). Size = [64, num_classes]. Use slicing to separate distillation and classification parts.
+    targets: torch.tensor(). Size = [64, num_classes]. Use slicing to separate distillation and classification parts.
+    '''
+    
+    BATCH_SIZE = 64
+    
+    lambda_base = 5 # from paper
+    cur_lambda = lambda_base * sqrt(num_classes-10/num_classes) # from paper
+    
+#     EPS = 1e-10
+#     sigmoid= nn.Sigmoid()
+#     clf_loss = torch.mean(-new_targets[:, :num_classes-10]*torch.log(sigmoid(outputs[:, num_classes-10:])+EPS)\
+#                         + (1-new_targets[:, num_classes-10:])* torch.pow(sigmoid(outputs[:, num_classes-10:]), 2))
+ 
+    clf_criterion = nn.BCEWithLogitsLoss()
+    clf_loss = clf_criterion(new_outputs, new_targets)
+    
+    if num_classes == 10:
+      return clf_loss
+    
+    dist_criterion = nn.CosineEmbeddingLoss()
+    dist_loss = dist_criterion(new_features, old_features, BATCH_SIZE)
+    
+    dist = (num_classes - 10)/num_classes
+    clf = 10/num_classes
+    
+    loss = clf*clf_loss + dist*dist_loss*cur_lambda
+    
+    return loss
     
 
 
