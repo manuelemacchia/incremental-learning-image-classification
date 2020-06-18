@@ -64,7 +64,7 @@ class DKHLoss(nn.Module):
     return loss
     
  
-# classification
+# distillation
 class LFCLoss(nn.Module):
 
   def __init__(self, weight = None, reduction = 'mean'):
