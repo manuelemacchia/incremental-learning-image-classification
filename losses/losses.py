@@ -93,7 +93,7 @@ class LFCLoss(nn.Module):
       return clf_loss
     
     dist_criterion = nn.CosineEmbeddingLoss()
-    dist_loss = dist_criterion(new_features, old_features, BATCH_SIZE)
+    dist_loss = dist_criterion(new_features, old_features, torch.ones(BATCH_SIZE).cuda())
     
     dist = (num_classes - 10)/num_classes
     clf = 10/num_classes
