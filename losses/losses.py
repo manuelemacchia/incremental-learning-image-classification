@@ -67,6 +67,7 @@ class DKHLoss(nn.Module):
 
 
 
+
 # distillation - are all contributes needed? randomly remove some contributions to the loss
 class MaskBCELoss(nn.Module):
   
@@ -79,7 +80,7 @@ class MaskBCELoss(nn.Module):
 
     clf_criterion = nn.BCEWithLogitsLoss()
 
-    clf_loss = clf_criterion(outputs[:, num_classes-10:], targets[:, :num_classes-10:])
+    clf_loss = clf_criterion(outputs[:, num_classes-10:], targets[:, num_classes-10:])
 
     if num_classes == 10:
       return clf_loss
@@ -88,7 +89,7 @@ class MaskBCELoss(nn.Module):
 
     sigmoid = nn.Sigmoid()
     EPS = 1e-10
-    rows, cols = outputs.size() # [batch size, num_classes]
+    rows, cols = outputs[:, :num_classes-10].size() # [batch size, num_classes]
     size = int(rows*cols*fraction) 
     random_vector = np.zeros(int(rows*cols), dtype=int)
     random_vector[:size] = 1
