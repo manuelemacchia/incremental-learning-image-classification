@@ -1,6 +1,8 @@
 import torch.nn as nn
 import math
 import torch.utils.model_zoo as model_zoo
+from torch.nn.parameter import Parameter
+from torch.nn import functional as F
 
 """
 Credits to @hshustc
@@ -74,6 +76,36 @@ class BasicBlockNoReLU(nn.Module):
         # out = self.relu(out)
 
         return out
+
+class CosineLayer(nn.Module):
+    __constants__ = ['in_features', 'out_features', 'eta']
+
+    def __init__(self, in_features, out_features, eta=1, bias=False):
+        super(CosineLayer, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.eta = eta
+        self.weight = Parameter(torch.Tensor(out_features, in_features))
+        if bias:
+            self.bias = Parameter(torch.Tensor(out_features))
+        else:
+            self.register_parameter('bias', None)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        if self.bias is not None:
+            fan_in, _ = init._calculate_fan_in_and_fan_out(self.weight)
+            bound = 1 / math.sqrt(fan_in)
+            init.uniform_(self.bias, -bound, bound)
+
+    def forward(self, input):
+        # L2 normalize
+        inp = F.normalize(input, p=2, dim=1)
+        wgt = F.normalize(self.weight, p=2, dim=1)
+
+        return self.eta * inp.matmul(wgt.t())
+        # return inp.matmul(wgt.t())
 
 
 class Bottleneck(nn.Module):
@@ -197,7 +229,8 @@ class ResNetCosine(nn.Module):
         # self.layer3 = self._make_layer(block, 64, layers[2], stride=2)
         self.layer3norelu = self._make_layer(blocknorelu, 64, layers[2], stride=2)
         self.avgpool = nn.AvgPool2d(8, stride=1)
-        self.fc = nn.Linear(64 * block.expansion, num_classes)
+        # self.fc = nn.Linear(64 * block.expansion, num_classes)
+        self.fc = CosineLayer(64 * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
