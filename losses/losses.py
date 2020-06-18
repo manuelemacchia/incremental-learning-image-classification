@@ -12,22 +12,26 @@ class FMLoss(nn.Module):
     outputs: torch.tensor(). Size = [128, num_classes]. Use slicing to separate distillation and classification parts.
     targets: torch.tensor(). Size = [128, num_classes]. Use slicing to separate distillation and classification parts.
     '''
-    num_classes = outputs.size(1)
-    dist_criterion = nn.BCEWithLogitsLoss()
-    dist_loss = dist_criterion(outputs[:, :num_classes-10], targets[:, :num_classes-10])
+    num_classes = outputs.size(1) 
     
     EPS = 1e-10
     sigmoid= nn.Sigmoid()
-    clf_loss = torch.mean(-targets*torch.log(sigmoid(outputs[:, num_classes-10:])+EPS)\
+    clf_loss = torch.mean(-targets[:, :num_classes-10]*torch.log(sigmoid(outputs[:, num_classes-10:])+EPS)\
                         + (1-targets[:, num_classes-10:])* torch.pow(sigmoid(outputs[:, num_classes-10:]), 2))
     
-    dist = (self.num_classes - 10)/self.num_classes
-    clf = 10/self.num_classes
+    if num_classes == 10:
+      return clf_loss
+    
+    dist_criterion = nn.BCEWithLogitsLoss()
+    dist_loss = dist_criterion(outputs[:, :num_classes-10], targets[:, :num_classes-10])
+    
+    dist = (num_classes - 10)/num_classes
+    clf = 10/num_classes
     
     loss = clf*clf_loss + dist*dist_loss
     return loss
   
-# Old outots targets are given BCE likewise
+# Old outputs targets are given BCE likewise
 # Implementation of https://arxiv.org/abs/1503.02531
 class DKHLoss(nn.Module):
   '''
@@ -61,22 +65,42 @@ class DKHLoss(nn.Module):
     
     
 
+
+
 # distillation - are all contributes needed? randomly remove some contributions to the loss
-class MyBCELoss(nn.Module):
+class MaskBCELoss(nn.Module):
   
   def __init__(self):
     super(MyBCELoss, self).__init__()
 
-  def forward(self, outputs, targets, random_tensor):
+  def forward(self, outputs, targets):
+
+    num_classes = outputs.size(1) 
+
+    clf_criterion = nn.BCEWithLogitsLoss()
+
+    clf_loss = clf_criterion(outputs[:, num_classes-10:], targets[:, :num_classes-10:])
+
+    if num_classes == 10:
+      return clf_loss
+
+    fraction = 0.7 # fraction of non zero entries
+
     sigmoid = nn.Sigmoid()
     EPS = 1e-10
-    rows, cols = outputs.size()
-    size = int(rows*cols*0.9)
+    rows, cols = outputs.size() # [batch size, num_classes]
+    size = int(rows*cols*fraction) 
     random_vector = np.zeros(int(rows*cols), dtype=int)
     random_vector[:size] = 1
     np.random.shuffle(random_vector)
     random_tensor = torch.FloatTensor(random_vector.reshape(rows, cols)).cuda()
-    loss = torch.mean(-random_tensor*(targets*torch.log(sigmoid(outputs)+EPS) + (1-targets)* torch.log(1 - sigmoid(outputs)+EPS)))
+    dist_loss = torch.mean(-random_tensor*(targets[:, :num_classes-10]*torch.log(sigmoid(outputs[:, :num_classes-10])+EPS)\
+                                      + (1-targets[:, :num_classes-10])* torch.log(1 - sigmoid(outputs[:, :num_classes-10])+EPS)))
+    
+    dist = (num_classes - 10)/num_classes
+    clf = 10/num_classes
+    
+    loss = clf*clf_loss + dist*dist_loss
 
     return loss
     
