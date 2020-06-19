@@ -198,8 +198,6 @@ class ResNet(nn.Module):
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
-        
-
         x = self.fc(x)
 
         return x
@@ -211,13 +209,13 @@ class ResNet(nn.Module):
 
         x = self.layer1(x)
         x = self.layer2(x)
-        x = self.layer3norelu(x)
+        x = self.layer3(x)
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
 
         return x
-    
+
 class ResNetCosine(nn.Module):
 
     def __init__(self, block, blocknorelu, layers, num_classes=10):
@@ -259,25 +257,7 @@ class ResNetCosine(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x, features = False):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3norelu(x)
-
-        x = self.avgpool(x)
-        x = x.view(x.size(0), -1)
-        if features:
-            return x
-        
-        x = self.fc(x)
-
-        return x
-    
-    def features(self, x):
+    def forward(self, x, features=False):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -289,8 +269,10 @@ class ResNetCosine(nn.Module):
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
 
+        if features == False:
+            x = self.fc(x)
+
         return x
-    
 
 def resnet20(pretrained=False, **kwargs):
     n = 3
