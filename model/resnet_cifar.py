@@ -277,6 +277,20 @@ class ResNetCosine(nn.Module):
 
         return x
     
+    def features(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3norelu(x)
+
+        x = self.avgpool(x)
+        x = x.view(x.size(0), -1)
+
+        return x
+    
 
 def resnet20(pretrained=False, **kwargs):
     n = 3
