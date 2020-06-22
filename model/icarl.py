@@ -285,7 +285,7 @@ class iCaRL:
 
         # @DEBUG
         for y in range(len(self.exemplars_rand)):
-            self.exemplars_rand[y] = self.reduce_exemplar_set(self.exemplars[y], m)
+            self.exemplars_rand[y] = self.reduce_exemplar_set(self.exemplars_rand[y], m)
 
         # Construct exemplar set for new classes
         new_exemplars = self.construct_exemplar_set(train_dataset, m)
