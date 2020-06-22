@@ -4,8 +4,6 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader, ConcatDataset
 from torch.backends import cudnn
 
-import numpy as np
-import numpy.ma as ma
 from math import floor
 from copy import deepcopy
 import random
@@ -68,9 +66,6 @@ class iCaRL:
         # with num_classes the number of classes seen until now by the network.
         self.exemplars = []
 
-        # @DEBUG
-        self.exemplars_rand = []
-
         # Initialize the copy of the old network, used to compute outputs of the
         # previous network for the distillation loss, to None. This is useful to
         # correctly apply the first function when training the network for the
@@ -130,70 +125,6 @@ class iCaRL:
                     features_list = []
 
                 for exemplar in self.exemplars[y]:
-                    features = self.extract_features(exemplar, batch=False, transform=self.test_transform)
-                    features = features/features.norm() # Normalize the feature representation of the exemplar
-                    features_list.append(features)
-                
-                features_list = torch.stack(features_list)
-                class_means = features_list.mean(dim=0)
-                class_means = class_means/class_means.norm() # Normalize the class means
-
-                self.cached_means.append(class_means)
-            
-            self.cached_means = torch.stack(self.cached_means).to(self.device)
-            print("done")
-
-        preds = []
-        for i in range(batch_features.size(0)):
-            f_arg = torch.norm(batch_features[i] - self.cached_means, dim=1)
-            preds.append(torch.argmin(f_arg))
-        
-        return torch.stack(preds)
-    
-    # @DEBUG
-    def classify_rand(self, batch, train_dataset=None):
-        """Mean-of-exemplars classifier used to classify images into the set of
-        classes observed so far.
-
-        Args:
-            batch (torch.tensor): batch to classify
-        Returns:
-            label (int): class label assigned to the image
-        """
-
-        batch_features = self.extract_features(batch) # (batch size, 64)
-        for i in range(batch_features.size(0)):
-            batch_features[i] = batch_features[i]/batch_features[i].norm() # Normalize sample feature representation
-        batch_features = batch_features.to(self.device)
-
-        if self.cached_means is None:
-            print("Computing mean of exemplars... ", end="")
-
-            self.cached_means = []
-
-            # Number of known classes
-            num_classes = len(self.exemplars_rand)
-
-            # Compute the means of classes with all the data available,
-            # including training data which contains samples belonging to
-            # the latest 10 classes. This will remove noise from the mean
-            # estimate, improving the results.
-            if train_dataset is not None:
-                train_features_list = [[] for _ in range(10)]
-
-                for train_sample, label in train_dataset:
-                    features = self.extract_features(train_sample, batch=False, transform=self.test_transform)
-                    features = features/features.norm()
-                    train_features_list[label % 10].append(features)
-
-            # Compute means of exemplars for all known classes
-            for y in range(num_classes):
-                if (train_dataset is not None) and (y in range(num_classes-10, num_classes)):
-                    features_list = train_features_list[y % 10]
-                else:
-                    features_list = []
-
-                for exemplar in self.exemplars_rand[y]:
                     features = self.extract_features(exemplar, batch=False, transform=self.test_transform)
                     features = features/features.norm() # Normalize the feature representation of the exemplar
                     features_list.append(features)
@@ -283,17 +214,9 @@ class iCaRL:
         for y in range(len(self.exemplars)):
             self.exemplars[y] = self.reduce_exemplar_set(self.exemplars[y], m)
 
-        # @DEBUG
-        for y in range(len(self.exemplars_rand)):
-            self.exemplars_rand[y] = self.reduce_exemplar_set(self.exemplars_rand[y], m)
-
         # Construct exemplar set for new classes
-        new_exemplars = self.construct_exemplar_set(train_dataset, m)
-        self.exemplars.extend(new_exemplars)
-
-        # @DEBUG
         new_exemplars = self.construct_exemplar_set_rand(train_dataset, m)
-        self.exemplars_rand.extend(new_exemplars)
+        self.exemplars.extend(new_exemplars)
 
         return train_logs
 
@@ -321,76 +244,6 @@ class iCaRL:
         self.old_net = deepcopy(self.net)
 
         return train_logs
-
-    def construct_exemplar_set(self, dataset, m):
-        """...
-
-        Args:
-            dataset: dataset containing a split (samples from 10 classes) from
-                which to take exemplars
-            m (int): target number of exemplars per class
-        Returns:
-            exemplars: list of samples extracted from the dataset
-        """
-
-        dataset.dataset.disable_transform()
-
-        samples = [[] for _ in range(10)]
-        for image, label in dataset:
-            label = label % 10 # Map labels to 0-9 range
-            samples[label].append(image)
-
-        dataset.dataset.enable_transform()
-
-        # Initialize exemplar sets
-        exemplars = [[] for _ in range(10)]
-
-        # Iterate over classes
-        for y in range(10):
-            print(f"Extracting exemplars from class {y} of current split... ", end="")
-
-            # Transform samples to tensors and apply normalization
-            transformed_samples = torch.zeros((len(samples[y]), 3, 32, 32)).to(self.device)
-            for i in range(len(transformed_samples)):
-                transformed_samples[i] = self.test_transform(samples[y][i])
-
-            # Extract features from samples
-            samples_features = self.extract_features(transformed_samples).to(self.device)
-
-            # Compute the feature mean of the current class
-            features_mean = samples_features.mean(dim=0)
-
-            # Initializes indices vector, containing the index of each exemplar chosen
-            idx = []
-
-            # See iCaRL algorithm 4
-            for k in range(1, m+1): # k = 1, ..., m -- Choose m exemplars
-                if k == 1: # No exemplars chosen yet, sum to 0 vector
-                    f_sum = torch.zeros(64).to(self.device)
-                else: # Sum of features of all exemplars chosen until now (j = 1, ..., k-1)
-                    f_sum = samples_features[idx].sum(dim=0)
-
-                # Compute argument of argmin function
-                f_arg = torch.norm(features_mean - 1/k * samples_features + f_sum, dim=1)
-
-                # Mask exemplars that were already taken, as we do not want to store the
-                # same exemplar more than once
-                mask = np.zeros(len(f_arg), int)
-                mask[idx] = 1
-                f_arg_masked = ma.masked_array(f_arg.cpu().detach().numpy(), mask=mask)
-
-                # Compute the nearest available exemplar
-                exemplar_idx = np.argmin(f_arg_masked)
-
-                idx.append(exemplar_idx)
-            
-            # Save exemplars to exemplar set
-            for i in idx:
-                exemplars[y].append(samples[y][i])
-            
-            print(f"Extracted {len(exemplars[y])} exemplars.")
-            
-        return exemplars
 
     def construct_exemplar_set_rand(self, dataset, m):
         """Randomly sample m elements from a dataset without replacement.
@@ -714,67 +567,6 @@ class iCaRL:
             
             with torch.no_grad():
                 preds = self.classify(images, train_dataset)
-
-            running_corrects += torch.sum(preds == labels.data).data.item()
-
-            all_preds = torch.cat(
-                (all_preds.to(self.device), preds.to(self.device)), dim=0
-            )
-
-        if train_dataset is not None: train_dataset.dataset.enable_transform()
-
-        # Calculate accuracy
-        accuracy = running_corrects / float(total)  
-
-        print(f"Test accuracy (iCaRL): {accuracy} ", end="")
-
-        if train_dataset is None:
-            print("(only exemplars)")
-        else:
-            print("(exemplars and training data)")
-
-        return accuracy, all_preds
-
-    # @DEBUG
-    def test_rand(self, test_dataset, train_dataset=None):
-        """Test the model.
-
-        Args:
-            test_dataset: dataset on which to test the network
-            train_dataset: training set used to train the last split, if
-                available
-        Returns:
-            accuracy (float): accuracy of the model on the test set
-        """
-
-        self.net.train(False)
-        if self.best_net is not None: self.best_net.train(False)  # Set Network to evaluation mode
-        if self.old_net is not None: self.old_net.train(False)
-
-        self.test_dataloader = DataLoader(test_dataset, batch_size=self.BATCH_SIZE, shuffle=True, num_workers=4)
-
-        running_corrects = 0
-        total = 0
-
-        # To store all predictions
-        all_preds = torch.tensor([])
-        all_preds = all_preds.type(torch.LongTensor)
-
-        # Clear mean of exemplars cache
-        self.cached_means = None
-        
-        # Disable transformations for train_dataset, if available, as we will
-        # need original PIL images from which to extract features.
-        if train_dataset is not None: train_dataset.dataset.disable_transform()
-
-        for images, labels in self.test_dataloader:
-            images = images.to(self.device)
-            labels = labels.to(self.device)
-
-            total += labels.size(0)
-            
-            with torch.no_grad():
-                preds = self.classify_rand(images, train_dataset)
 
             running_corrects += torch.sum(preds == labels.data).data.item()
 
