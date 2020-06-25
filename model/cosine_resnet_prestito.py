@@ -117,8 +117,6 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-    def eta(self):
-        return self.linear.sigma.data
 
     def __init__(self, block, layers, num_classes):
         self.inplanes = 16
@@ -131,7 +129,7 @@ class ResNet(nn.Module):
         self.layer2 = self._make_layer(block, 32, layers[1], stride=2)
         self.layer3 = self._make_layer(BasicBlockNoReLu, 64, layers[2], stride=2)
         self.avgpool = nn.AvgPool2d(8, stride=1)
-        self.linear = CosineLinear(64 * block.expansion, num_classes)
+        self.fc = CosineLayer(64 * block.expansion, num_classes)
         self.out_dim = 64 * block.expansion
 
         for m in self.modules():
@@ -158,7 +156,7 @@ class ResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x, features=False):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -168,17 +166,18 @@ class ResNet(nn.Module):
         x = self.layer3(x)
 
         x = self.avgpool(x)
-        feature_map = x.view(x.size(0), -1)
+        x = x.view(x.size(0), -1)
 
         # x = F.normalize(feature_map)
         # norm_weights = F.normalize(self.linear.weight.data)
         # x = F.linear(x,norm_weights.data,self.linear.bias.data)
 
-        x=self.linear(feature_map)
+        if features == False:
+            x = self.fc(x)
 
-        return feature_map,x
+        return x
 
-    def feature_extractor(self, x):
+    def features(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -192,30 +191,30 @@ class ResNet(nn.Module):
 
         return x
 
-class CosineLinear(nn.Module):
-    def __init__(self, in_features, out_features, sigma=True):
-        super(CosineLinear, self).__init__()
+class CosineLayer(nn.Module):
+    def __init__(self, in_features, out_features, eta=True):
+        super(CosineLayer, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
         self.weight = nn.Parameter(torch.Tensor(out_features, in_features))
-        if sigma:
-            self.sigma = nn.Parameter(torch.Tensor(1))
+        if eta:
+            self.eta = nn.Parameter(torch.Tensor(1))
         else:
-            self.register_parameter('sigma', None)
+            self.register_parameter('eta', None)
         self.reset_parameters()
 
     def reset_parameters(self):
         stdv = 1. / math.sqrt(self.weight.size(1))
         self.weight.data.uniform_(-stdv, stdv)
-        if self.sigma is not None:
-            self.sigma.data.fill_(1) #for initializaiton of sigma
+        if self.eta is not None:
+            self.eta.data.fill_(1) #for initializaiton of eta
 
     def forward(self, input):
 
         out = F.linear(F.normalize(input, p=2,dim=1), \
                 F.normalize(self.weight, p=2, dim=1))
-        if self.sigma is not None:
-            out = self.sigma * out
+        if self.eta is not None:
+            out = self.eta * out
         return out
 
 def resnet20(pretrained=False, **kwargs):
