@@ -79,34 +79,31 @@ class BasicBlockNoReLU(nn.Module):
         return out
 
 class CosineLayer(nn.Module):
-    __constants__ = ['in_features', 'out_features']
-
-    in_features: int
-    out_features: int
-    weight: torch.Tensor
-    eta: torch.Tensor
-
-    def __init__(self, in_features, out_features, bias=False):
+    def __init__(self, in_features, out_features, eta=True):
         super(CosineLayer, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.eta = Parameter(torch.Tensor(1))
         self.weight = Parameter(torch.Tensor(out_features, in_features))
-        if bias:
-            self.bias = Parameter(torch.Tensor(out_features))
+        if eta:
+            self.eta = Parameter(torch.Tensor(1))
         else:
-            self.register_parameter('bias', None)
+            self.register_parameter('eta', None)
         self.reset_parameters()
 
     def reset_parameters(self):
-        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
-        if self.bias is not None:
-            fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
-            bound = 1 / math.sqrt(fan_in)
-            nn.init.uniform_(self.bias, -bound, bound)
+        stdv = 1. / math.sqrt(self.weight.size(1))
+        self.weight.data.uniform_(-stdv, stdv)
+
+        if self.eta is not None:
+            self.eta.data.fill_(1)
 
     def forward(self, input):
-        return self.eta * F.normalize(input, p=2, dim=1).matmul(F.normalize(self.weight, p=2, dim=1).t())
+        out = F.linear(F.normalize(input, p=2, dim=1), F.normalize(self.weight, p=2, dim=1))
+
+        if self.sigma is not None:
+            out = self.sigma * out
+
+        return out
 
 
 class Bottleneck(nn.Module):
