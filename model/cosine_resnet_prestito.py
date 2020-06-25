@@ -223,7 +223,7 @@ def resnet20(pretrained=False, **kwargs):
     model = ResNet(BasicBlock, [n, n, n], **kwargs)
     return model
 
-def resnet32(pretrained=False, **kwargs):
+def resnet32cosine(pretrained=False, **kwargs):
     n = 5
     model = ResNet(BasicBlock, [n, n, n], **kwargs)
     return model
