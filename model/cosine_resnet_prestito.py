@@ -1,9 +1,8 @@
-import torch
 import torch.nn as nn
-from torch.nn.parameter import Parameter
-from torch.nn import functional as F
 import math
 import torch.utils.model_zoo as model_zoo
+import torch.nn.functional as F
+import torch
 
 """
 Credits to @hshustc
@@ -47,11 +46,11 @@ class BasicBlock(nn.Module):
 
         return out
 
-class BasicBlockNoReLU(nn.Module):
+class BasicBlockNoReLu(nn.Module):
     expansion = 1
 
     def __init__(self, inplanes, planes, stride=1, downsample=None):
-        super(BasicBlockNoReLU, self).__init__()
+        super(BasicBlockNoReLu, self).__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = nn.BatchNorm2d(planes)
         self.relu = nn.ReLU(inplace=True)
@@ -74,34 +73,6 @@ class BasicBlockNoReLU(nn.Module):
             residual = self.downsample(x)
 
         out += residual
-        # out = self.relu(out)
-
-        return out
-
-class CosineLayer(nn.Module):
-    def __init__(self, in_features, out_features, eta=True):
-        super(CosineLayer, self).__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-        self.weight = Parameter(torch.Tensor(out_features, in_features))
-        if eta:
-            self.eta = Parameter(torch.Tensor(1))
-        else:
-            self.register_parameter('eta', None)
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        stdv = 1. / math.sqrt(self.weight.size(1))
-        self.weight.data.uniform_(-stdv, stdv)
-
-        if self.eta is not None:
-            self.eta.data.fill_(1)
-
-    def forward(self, input):
-        out = F.linear(F.normalize(input, p=2, dim=1), F.normalize(self.weight, p=2, dim=1))
-
-        if self.eta is not None:
-            out = self.eta * out
 
         return out
 
@@ -146,8 +117,10 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
+    def eta(self):
+        return self.linear.sigma.data
 
-    def __init__(self, block, layers, num_classes=10):
+    def __init__(self, block, layers, num_classes):
         self.inplanes = 16
         super(ResNet, self).__init__()
         self.conv1 = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1,
@@ -156,13 +129,14 @@ class ResNet(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.layer1 = self._make_layer(block, 16, layers[0])
         self.layer2 = self._make_layer(block, 32, layers[1], stride=2)
-        self.layer3 = self._make_layer(block, 64, layers[2], stride=2)
+        self.layer3 = self._make_layer(BasicBlockNoReLu, 64, layers[2], stride=2)
         self.avgpool = nn.AvgPool2d(8, stride=1)
-        self.fc = nn.Linear(64 * block.expansion, num_classes)
+        self.linear = CosineLinear(64 * block.expansion, num_classes)
+        self.out_dim = 64 * block.expansion
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.xavier_normal_(m.weight)
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
@@ -194,12 +168,17 @@ class ResNet(nn.Module):
         x = self.layer3(x)
 
         x = self.avgpool(x)
-        x = x.view(x.size(0), -1)
-        x = self.fc(x)
+        feature_map = x.view(x.size(0), -1)
 
-        return x
-    
-    def features(self, x):
+        # x = F.normalize(feature_map)
+        # norm_weights = F.normalize(self.linear.weight.data)
+        # x = F.linear(x,norm_weights.data,self.linear.bias.data)
+
+        x=self.linear(feature_map)
+
+        return feature_map,x
+
+    def feature_extractor(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -213,63 +192,31 @@ class ResNet(nn.Module):
 
         return x
 
-class ResNetCosine(nn.Module):
+class CosineLinear(nn.Module):
+    def __init__(self, in_features, out_features, sigma=True):
+        super(CosineLinear, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.weight = nn.Parameter(torch.Tensor(out_features, in_features))
+        if sigma:
+            self.sigma = nn.Parameter(torch.Tensor(1))
+        else:
+            self.register_parameter('sigma', None)
+        self.reset_parameters()
 
-    def __init__(self, block, blocknorelu, layers, num_classes=10):
-        self.inplanes = 16
-        super(ResNetCosine, self).__init__()
-        self.conv1 = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1,
-                               bias=False)
-        self.bn1 = nn.BatchNorm2d(16)
-        self.relu = nn.ReLU(inplace=True)
-        self.layer1 = self._make_layer(block, 16, layers[0])
-        self.layer2 = self._make_layer(block, 32, layers[1], stride=2)
-        # self.layer3 = self._make_layer(block, 64, layers[2], stride=2)
-        self.layer3norelu = self._make_layer(blocknorelu, 64, layers[2], stride=2)
-        self.avgpool = nn.AvgPool2d(8, stride=1)
-        # self.fc = nn.Linear(64 * block.expansion, num_classes)
-        self.fc = CosineLayer(64 * block.expansion, num_classes)
+    def reset_parameters(self):
+        stdv = 1. / math.sqrt(self.weight.size(1))
+        self.weight.data.uniform_(-stdv, stdv)
+        if self.sigma is not None:
+            self.sigma.data.fill_(1) #for initializaiton of sigma
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.xavier_normal_(m.weight)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
+    def forward(self, input):
 
-    def _make_layer(self, block, planes, blocks, stride=1):
-        downsample = None
-        if stride != 1 or self.inplanes != planes * block.expansion:
-            downsample = nn.Sequential(
-                nn.Conv2d(self.inplanes, planes * block.expansion,
-                          kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(planes * block.expansion),
-            )
-
-        layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample))
-        self.inplanes = planes * block.expansion
-        for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes))
-
-        return nn.Sequential(*layers)
-
-    def forward(self, x, features=False):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3norelu(x)
-
-        x = self.avgpool(x)
-        x = x.view(x.size(0), -1)
-
-        if features == False:
-            x = self.fc(x)
-
-        return x
+        out = F.linear(F.normalize(input, p=2,dim=1), \
+                F.normalize(self.weight, p=2, dim=1))
+        if self.sigma is not None:
+            out = self.sigma * out
+        return out
 
 def resnet20(pretrained=False, **kwargs):
     n = 3
@@ -279,11 +226,6 @@ def resnet20(pretrained=False, **kwargs):
 def resnet32(pretrained=False, **kwargs):
     n = 5
     model = ResNet(BasicBlock, [n, n, n], **kwargs)
-    return model
-
-def resnet32cosine(pretrained=False, **kwargs):
-    n = 5
-    model = ResNetCosine(BasicBlock, BasicBlockNoReLU, [n, n, n], **kwargs)
     return model
 
 def resnet56(pretrained=False, **kwargs):
