@@ -100,8 +100,8 @@ class CosineLayer(nn.Module):
     def forward(self, input):
         out = F.linear(F.normalize(input, p=2, dim=1), F.normalize(self.weight, p=2, dim=1))
 
-        if self.sigma is not None:
-            out = self.sigma * out
+        if self.eta is not None:
+            out = self.eta * out
 
         return out
 
