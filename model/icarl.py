@@ -570,6 +570,10 @@ class iCaRL:
 
             running_corrects += torch.sum(preds == labels.data).data.item()
 
+            all_targets = torch.cat(
+                (all_targets.to(self.device), labels.to(self.device)), dim=0
+            )
+
             all_preds = torch.cat(
                 (all_preds.to(self.device), preds.to(self.device)), dim=0
             )
@@ -586,7 +590,7 @@ class iCaRL:
         else:
             print("(exemplars and training data)")
 
-        return accuracy, all_preds
+        return accuracy, all_targets, all_preds
 
     def test_without_classifier(self, test_dataset):
         """Test the model without classifier, using the outputs of the
