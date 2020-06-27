@@ -252,6 +252,8 @@ class Manager():
 
         all_preds = torch.tensor([]) # to store all predictions
         all_preds = all_preds.type(torch.LongTensor)
+        all_targets = torch.tensor([])
+        all_targets = all_targets.type(torch.LongTensor)
         
         for images, labels in self.test_dataloader:
             images = images.to(self.device)
@@ -267,7 +269,10 @@ class Manager():
             # Update Corrects
             running_corrects += torch.sum(preds == labels.data).data.item()
 
-            # Append batch predictions
+            # Append batch predictions and labels
+            all_targets = torch.cat(
+                (all_targets.to(self.device), labels.to(self.device)), dim=0
+            )
             all_preds = torch.cat(
                 (all_preds.to(self.device), preds.to(self.device)), dim=0
             )
@@ -277,4 +282,4 @@ class Manager():
 
         print(f"Test accuracy: {accuracy}")
 
-        return (accuracy, all_preds)
+        return accuracy, all_targets, all_preds
