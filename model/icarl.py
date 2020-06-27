@@ -658,9 +658,11 @@ class iCaRL:
         in_features = self.net.fc.in_features  # size of each input sample
         out_features = self.net.fc.out_features  # size of each output sample
         weight = self.net.fc.weight.data
+        bias = self.net.fc.bias.data
 
         self.net.fc = nn.Linear(in_features, out_features+n)
         self.net.fc.weight.data[:out_features] = weight
+        self.net.fc.bias.data[:out_features] = bias
     
     def output_neurons_count(self):
         """Return the number of output neurons of the current network."""
@@ -682,3 +684,9 @@ class iCaRL:
         one_hot_targets = torch.eye(num_classes)[targets]
 
         return one_hot_targets.to(self.device)
+
+    def network_params(self):
+        weight = self.net.fc.weight.data
+        bias = self.net.fc.bias.data
+
+        return weight, bias
