@@ -1027,24 +1027,24 @@ The second classifier we evaluate is a cosine normalization layer as described i
 \begin{figure}
 \begin{center}
 \begin{tikzpicture}
-    \draw (3/3,-4/3) node[circle,fill,inner sep=1] (orig) {};
+    %%% LEFT
+    \draw (3/3,-4/3) node[circle,fill,inner sep=1] (lorig) {};
 
-    \draw[->, >=stealth, thick] (orig) -- (0,-1/3);
-    \draw[->, >=stealth, thick] (orig) -- (6/3,-1/3);
+    \draw[->, >=stealth, thick] (lorig) -- (0,-1/3);
+    \draw[->, >=stealth, thick] (lorig) -- (6/3,-1/3);
 
     \draw[dashed] (0,-5/3) -- (4/3,-5/3) -- (6/3,-3/3) -- (2/3,-3/3) -- (0,-5/3);
 
-    \draw[->, >=stealth, thick, densely dashed] (orig) -- (1/3,-5.5/3);
-    \draw[->, >=stealth, thick, densely dashed] (orig) -- (3.5/3,-5.5/3);
-    \draw[->, >=stealth, thick, densely dashed] (orig) -- (4.5/3,-4/3);
-\end{tikzpicture}
-\qquad \qquad
-\begin{tikzpicture}
+    \draw[->, >=stealth, thick, densely dotted] (lorig) -- (1/3,-5.5/3);
+    \draw[->, >=stealth, thick, densely dotted] (lorig) -- (3.5/3,-5.5/3);
+    \draw[->, >=stealth, thick, densely dotted] (lorig) -- (4.5/3,-4/3);
+
+    %%% RIGHT
     % Define radius
     \def\r{1}
 
     % Bloch vector
-    \draw (0,0) node[circle,fill,inner sep=1] (orig) {};
+    \draw (4,-1.15) node[circle,fill,inner sep=1] (orig) {};
 
     % Sphere
     \draw (orig) circle (\r);
@@ -1059,7 +1059,7 @@ The second classifier we evaluate is a cosine normalization layer as described i
     \draw[->, >=stealth, thick, densely dotted] (orig) -- ++(\r*0.5,-\r*0.866) node {};
 \end{tikzpicture}
 \end{center}
-\caption{Illustration of the magnitude imbalance between previous classes and new data, which is a crucial cause to catastrophic forgetting, and how the cosine linear layer tackles this problem. Dashed lines represent old class embeddings and solid lines represent new ones.}
+\caption{Illustration of the magnitude imbalance between previous classes and new data, which is a crucial cause to catastrophic forgetting, and how the cosine linear layer tackles this problem. Dotted lines represent old class embeddings and solid lines represent new ones.}
 \label{fig:classifier:cosine:features}
 \end{figure}
 
@@ -1068,7 +1068,7 @@ The authors observe that the magnitudes of the weight vectors and biases of new 
     \theta_{i}^{T} \varphi(x) + b_{i} \label{eq:1}\\
     \eta \langle \bar{\theta}_{i}^{T}, \bar{\varphi}(x) \rangle \label{eq:2}
 \end{align}
-where $v = v/\lVert v \rVert_{2}$ denotes the L2 normalized vector and $\langle v_{1}, v_{2} \rangle = v_{1}^{T} v_{2}$ measures the cosine similarity between two normalized vectors.
+where $\bar{v} = v/\lVert v \rVert_{2}$ denotes the L2 normalized vector and $\langle v_{1}, v_{2} \rangle = v_{1}^{T} v_{2}$ measures the cosine similarity between two normalized vectors.
 
 A natural choice for the classification strategy is to use the output of the network as is. However, we may improve this method by adopting an approach similar to iCaRL. We use a modified version of the NME that takes into account the different nature of the features by using the maximum cosine similarity instead of the minimum L-2 distance between the sample and the class prototypes. In other words, we change the computation of the nearest prototype in Algorithm 1 of iCaRL to (\ref{eq:3}).
 
@@ -1120,7 +1120,7 @@ In Figure~\ref{100a}, we show the difference between distillation targets produc
     scatter/classes={
         old={mark=*,mark size=1pt,yellow},
         last={mark=*,mark size=1pt,violet}},
-        xticklabels={0,10,...,80},
+        xtick={0,10,20,30,40,50,60,70,80},
         max space between ticks=20,
         legend style={font=\footnotesize, at={(1.05,1.05)}, anchor=north east},
         ymode=log
@@ -1305,7 +1305,7 @@ In Figure~\ref{100a}, we show the difference between distillation targets produc
     scatter/classes={
         t1={mark=*,mark size=1pt,yellow},
         t2={mark=*,mark size=1pt,teal}},
-        xticklabels={0,10,...,80},
+        xtick={0,10,...,80},
         max space between ticks=20,
         ymax=5,
         legend style={font=\footnotesize, at={(1.05,1.05)}, anchor=north east},
@@ -1491,7 +1491,7 @@ In Figure~\ref{100a}, we show the difference between distillation targets produc
     scatter/classes={
         t2={mark=*,mark size=1pt,teal},
         last={mark=*,mark size=1pt,violet}},
-        xticklabels={0,10,...,80},
+        xtick={0,10,...,80},
         max space between ticks=20,
         legend style={font=\footnotesize, at={(1.05,1.05)}, anchor=north east},
         ymode=log
@@ -1809,7 +1809,7 @@ In Figure~\ref{5:histogram} we show the drift between the representation learned
 
 To mitigate the drift, we add a contribution to the loss which tries to minimize the distance between important features. We choose a smooth L1 loss function (\ref{eq:smoothl1}) weighted by a parameter $\alpha$ which defines the importance of this contribution:
 \begin{equation}
-\text{loss}(x, y) = \frac{1}{n} \sum_{l} z_{l}*\alpha \label{eq:smoothl1}
+\text{loss}(x, y) = \frac{1}{n} \sum_{i} z_{i}*\alpha \label{eq:smoothl1}
 \end{equation}
 \[
     z_{i} =
@@ -4028,7 +4028,7 @@ In Figure~\ref{5:histogram2} we can quantitatively observe how the loss contribu
     \end{tikzpicture}
 \end{subfigure}
 \end{center}
-\caption{2D t-SNE features drift representation. On the left we have feature representations given by network trained at step 2, while on the right features of the network trained at step 10. Dimensionality reduction is applied in order to plot in a 2 dimensional space. In both plots, each representation is compared to its corresponding class protoypes, produced by the network trained at step 1.}
+\caption{2-dimensional t-SNE features drift representation. On the left we have feature representations given by network trained at step 2, while on the right features of the network trained at step 10. Dimensionality reduction is applied in order to plot the points in a 2-dimensional space. In both plots, each representation is compared to its corresponding class protoypes, produced by the network trained at step 1. We represent class prototypes with triangles.}
 
 \label{5:tsne}
 \end{figure*}
@@ -4049,7 +4049,7 @@ Another logic we decided to implement is to define some weighting coefficients f
 \begin{equation}
     64 * \frac{\mu_{l}}{\sum_{i} (\mu_{l})_{i}}
 \end{equation}
-where $64$ is the total number of entries, and $\sum_{i} (\mu_{l})_{i}$ is the sum of all entries of the prototype. In this way, we are able to give a coefficient that represents importance to each feature based on its label.
+where $64$ is the total number of entries, and $\sum_{i} (\mu_{l})_{i}$ is the sum of all entries of the prototype. In this way, we are able to give a coefficient, representing importance, to each feature based on its label.
 
 {\small
 \bibliographystyle{ieee}
