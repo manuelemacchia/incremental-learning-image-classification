@@ -6,6 +6,7 @@
 \usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage{bm}
 \usepackage{subcaption}
 
 \setlength{\marginparwidth }{2cm}
@@ -663,7 +664,7 @@ The second experiment that we perform involves the knowledge distillation loss i
 
 The knowledge distillation loss presented by \cite{hinton:2015} can be interpreted as a modified CE loss:
 \begin{equation}
-    \mathcal{L}_{old}(y_{o}, \hat{y}_{o})=-H(y_{o}', \hat{y}_{o}')=-\sum_{i=1}^{l} y_{o}'^{(i)} \log{\hat{y}_{o}'^{(i)}} \label{eq:loss:cebce}
+    \mathcal{L}_{old}(\bm{y_{o}}, \bm{\hat{y}_{o}})=-H(\bm{y_{o}}', \bm{\hat{y}_{o}}')=-\sum_{i=1}^{l} y_{o}'^{(i)} \log{\hat{y}_{o}'^{(i)}} \label{eq:loss:cebce}
 \end{equation}
 where $l$ is the number of old classes and $y_{o}'^{(i)}, \hat{y}_{o}'^{(i)}$ are the modified versions of old and current probabilities $y_{o}^{(i)}, \hat{y}_{o}^{(i)}$:
 \begin{equation}
@@ -4045,11 +4046,11 @@ Finally, this study shows how distillation loss does not fully address the featu
 \label{appendix}
 In Section~\ref{frds}, we explain how we try to mitigate representation drift by adding a loss contribuion over the outputs of the features extractor. We use a smooth L1 loss function (\ref{eq:smoothl1}) to achieve this goal. We choose a linear loss since we want to penalize less this type of errors. We experimented that with a quadratic function such as MSE, in order to avoid divergence, the learning rate needed to be too low to effectively learn new tasks. The quadratic contribution between 0 and 1 is necessary to have lower gradients in  correspondence of the minimum, again with the same goal of avoiding divergence.
 
-Another logic we decided to implement is to define some weighting coefficients for the penalized features scores. For each image with label $l$, we use as target the corresponding prototype produced by the last trained network. Given prototype vector  $\mu_{l}$, coefficients for correspondent images are defined as:
+Another logic we decided to implement is to define some weighting coefficients for the penalized features scores. For each image with label $l$, we use as target the corresponding prototype produced by the first trained network. Given prototype vector $\bm{\mu_{l}}$, coefficients for corresponding images are defined as:
 \begin{equation}
-    64 * \frac{\mu_{l}}{\sum_{i} (\mu_{l})_{i}}
+    64 * \frac{\mu_{l}^{(i)}}{\sum_{j} \mu_{l}^{(j)}}
 \end{equation}
-where $64$ is the total number of entries, and $\sum_{i} (\mu_{l})_{i}$ is the sum of all entries of the prototype. In this way, we are able to give a coefficient, representing importance, to each feature based on its label.
+where $64$ is the total number of entries, and $\sum_{j} \mu_{l}^{(j)}$ is the sum of all entries of the prototype. In this way, we are able to give a coefficient, representing importance, to each feature based on its label.
 
 {\small
 \bibliographystyle{ieee}
