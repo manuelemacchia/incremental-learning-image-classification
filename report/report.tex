@@ -1067,7 +1067,7 @@ The second classifier we evaluate is a cosine normalization layer as described i
 The authors observe that the magnitudes of the weight vectors and biases of new classes are higher than those of old classes. We are able to reproduce this harmful behaviour in iCaRL. The cosine layer solves this problem by enforcing balanced magnitudes across all classes, as illustrated in Figure~\ref{fig:classifier:cosine:features}. It replaces the last fully connected linear layer of the network, which computes the activations of its output neurons as described in (\ref{eq:1}), whereas the cosine layer measures the cosine similarity between two normalized vectors, computing the activations as (\ref{eq:2}):
 \begin{align}
     \theta_{i}^{T} \varphi(x) + b_{i} \label{eq:1}\\
-    \eta \langle \bar{\theta}_{i}^{T}, \bar{\varphi}(x) \rangle \label{eq:2}
+    \eta \langle \bar{\theta}_{i}, \bar{\varphi}(x) \rangle \label{eq:2}
 \end{align}
 where $\bar{v} = v/\lVert v \rVert_{2}$ denotes the L2 normalized vector and $\langle v_{1}, v_{2} \rangle = v_{1}^{T} v_{2}$ measures the cosine similarity between two normalized vectors.
 
