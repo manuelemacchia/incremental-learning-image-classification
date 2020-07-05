@@ -4044,9 +4044,9 @@ Finally, this study shows how distillation loss does not fully address the featu
 \appendix
 \section{Smooth L1 Loss and Features Coefficients}
 \label{appendix}
-In Section~\ref{frds}, we explain how we try to mitigate representation drift by adding a loss contribuion over the outputs of the features extractor. We use a smooth L1 loss function (\ref{eq:smoothl1}) to achieve this goal. We choose a linear loss since we want to penalize less this type of errors. We experimented that with a quadratic function such as MSE, in order to avoid divergence, the learning rate needed to be too low to effectively learn new tasks. The quadratic contribution between 0 and 1 is necessary to have lower gradients in  correspondence of the minimum, again with the same goal of avoiding divergence.
+In Section~\ref{frds}, we explain how we try to mitigate representation drift by adding a loss contribution over the outputs of the features extractor. We use a smooth L1 loss function (\ref{eq:smoothl1}) to achieve this goal. We choose a linear loss since we want to penalize less this type of errors. We experimented that with a quadratic function such as MSE, in order to avoid divergence, the learning rate needed to be too low to effectively learn new tasks. The quadratic contribution between 0 and 1 is necessary to have lower gradients in  correspondence of the minimum, again with the same goal of avoiding divergence.
 
-Another logic we decided to implement is to define some weighting coefficients for the penalized features scores. For each image with label $l$, we use as target the corresponding prototype produced by the first trained network. Given prototype vector $\bm{\mu_{l}}$, coefficients for corresponding images are defined as:
+Another logic we decided to implement is to define some weighting coefficients for the penalized features scores. For each image with label $l$, we use as target the corresponding prototype produced by an old network among those trained in the incremental learning process. Given prototype vector $\bm{\mu_{l}}$ from the old model, coefficients for corresponding features are defined as:
 \begin{equation}
     64 * \frac{\mu_{l}^{(i)}}{\sum_{j} \mu_{l}^{(j)}}
 \end{equation}
