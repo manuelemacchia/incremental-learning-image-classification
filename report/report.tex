@@ -17,16 +17,10 @@
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.16}
 \usetikzlibrary{angles,quotes}
-
 \DeclareUnicodeCharacter{FB01}{fi}
 
 \DeclareMathOperator*{\argmax}{argmax}
 
-% Include other packages here, before hyperref.
-
-% If you comment hyperref and then uncomment it, you should delete
-% egpaper.aux before re-running latex.  (Or just hit 'q' on the first latex
-% run, let it finish, and you should be clear).
 \usepackage[breaklinks=true,bookmarks=false]{hyperref}
 
 \cvprfinalcopy % *** Uncomment this line for the final submission
@@ -493,11 +487,11 @@ To clarify our reasoning, let us consider a toy classification problem with thre
 
 To verify this intuition, we design an asymmetric classification loss function with different penalization assigned to targets $0$ and $1$:
 \begin{equation}
-    \mathcal{L}_{asym}=\sum_{y=s}^{t} -y \log{g(x)} + (1-y)\;(g(x))^{2} \label{eq:loss:asym}
+    \mathcal{L}_{\text{asym}}=\sum_{i=s}^{t} - y_i \log{g_i(x)} + (1-y_i)\,(g_i(x))^{2} \label{eq:loss:asym}
 \end{equation}
-where $s, \dots, t$ are the new classes and $g(x)$ is the output of the sigmoid layer. Targets are passed to the function with one-hot encoding.
+where $s, \dots, t$ are the new classes and $g_i(x)$ is the $i$-th output of the sigmoid layer. Targets are passed to the function with one-hot encoding.
 
-While BCE penalizes all targets $0$ logarithmically, the cross entropy (CE) loss considers only the single output node of the target class. Our classification loss (\ref{eq:loss:asym}) stands between these two, with a quadratic penalization of $0$ targets. We think that this formulation has an advantage over CE in the Learning without Forgetting framework, as it addresses the imbalance in contributions that occurs when the number of old classes grows. The classification loss becomes less and less important than the distillation part as more incremental learning steps are taken, because the distillation contribution involves an increasing number of output nodes. When this disproportion is high, the classification loss is not able to adequately learn to classify new classes and the performance of the network on the new batch decreases.
+While BCE penalizes all targets $0$ logarithmically, the cross entropy (CE) loss considers only the single output node of the target class. Our classification loss (\ref{eq:loss:asym}) stands between these two, with a quadratic penalization of $0$ targets. We suppose that this formulation has an advantage over CE in the Learning without Forgetting framework, as it addresses the imbalance in contributions that occurs when the number of old classes grows. The classification loss becomes less and less important than the distillation part as more incremental learning steps are taken, because the distillation contribution involves an increasing number of output nodes. When this disproportion is high, the classification loss is not able to adequately learn to classify new classes and the performance of the network on the new batch decreases.
 
 In this setting, using a sigmoid layer instead of a softmax function to transform the outputs of the last fully connected layer to a probability distribution is fundamental. The softmax function normalizes the outputs in such a way to guarantee that the sum of all outputs is $1$. On the other hand, the sigmoid layer simply maps the scores to the $[0, 1]$ range, assigning a probabilistic meaning to each output node activation independently from other ones. We present the results in Figure~\ref{fig:loss:lwf}.
 
@@ -594,7 +588,7 @@ In this setting, using a sigmoid layer instead of a softmax function to transfor
         100, 0.35950, 0.00750
     };
 
-    % Asymmetric + KD
+    % Asymmetric + BCE
     \addplot+[
         purple,
         densely dash dot,
@@ -647,31 +641,30 @@ In this setting, using a sigmoid layer instead of a softmax function to transfor
     \addlegendentry{iCaRL BCE + BCE}
     \addlegendentry{CE + BCE}
     \addlegendentry{CE + KD}
-    \addlegendentry{Asymmetric + KD}
+    \addlegendentry{Asymmetric + BCE}
     \addlegendentry{Asymmetric + L2}
 \end{axis}
 \end{tikzpicture}
-\caption{Representation of test accuracy of the iCaRL framework with different loss function pairings. The choice of the loss function is not negligible, resulting in about $10\%$ difference of average incremental accuracy on the last split between BCE + BCE and CE + KD. We also see how the CE loss for classification is always giving the worst performance.}
+\caption{Representation of test accuracy of the iCaRL framework with different loss function pairings. The choice of the loss function is important, resulting in about $10\%$ difference of average incremental accuracy between BCE + BCE and CE + KD at the end of training. Using the CE loss for classification always results in a performance drop.}
 \label{fig:loss:plot}
 \end{figure}
 
 \subsubsection{CE + BCE}
 \label{section:loss:cebce}
-The first combination of classification and distillation loss functions that we implement in the iCaRL framework is CE and BCE. In Section~\ref{section:loss:lwf} we explain how these two contributions are unbalanced. In particular, we show how the CE contribute loses of importance as more learning steps are taken, due to the increasing number of output nodes for old classes. The inability to adequately learn new classes exhibits as an accuracy drop with respect to the baseline, as we show in Figure~\ref{fig:loss:plot}.
+The first combination of classification and distillation loss functions that we implement in the iCaRL framework is CE and BCE. In Section~\ref{section:loss:lwf} we explain how these two contributions are unbalanced. In particular, we show how the CE contribution loses of importance as more learning steps are taken, due to the increasing number of output nodes for old classes. The inability to adequately learn new classes exhibits as an accuracy drop with respect to the baseline, as we show in Figure~\ref{fig:loss:plot}.
 
 \subsubsection{CE + Knowledge Distillation}
-The second experiment that we perform involves the knowledge distillation loss introduced by \cite{hinton:2015}. The combination of this distillation loss with CE for classification is in line with the original implementation of the LWF framework. We want to understand whether the use of BCE for both classification and distillation is sensible by performing this experiment, also given the conclusions drawn in Section~\ref{section:loss:cebce}.
+The second experiment that we perform involves the knowledge distillation loss introduced by \cite{hinton:2015}. The combination of this distillation loss with CE for classification is in line with the original implementation of the Learning without Forgetting framework. We want to understand whether the use of BCE for both classification and distillation is sensible by performing this experiment, also given the conclusions drawn in Section~\ref{section:loss:cebce}.
 
 The knowledge distillation loss presented by \cite{hinton:2015} can be interpreted as a modified CE loss:
 \begin{equation}
-    \mathcal{L}_{old}(\bm{y_{o}}, \bm{\hat{y}_{o}})=-H(\bm{y_{o}}', \bm{\hat{y}_{o}}')=-\sum_{i=1}^{l} y_{o}'^{(i)} \log{\hat{y}_{o}'^{(i)}} \label{eq:loss:cebce}
+    \mathcal{L}_{\text{KD}}=-\sum_{i=1}^{s-1} y'_i \log g'_i(x) \label{eq:loss:cebce}
 \end{equation}
-where $l$ is the number of old classes and $y_{o}'^{(i)}, \hat{y}_{o}'^{(i)}$ are the modified versions of old and current probabilities $y_{o}^{(i)}, \hat{y}_{o}^{(i)}$:
+where $1,\dots,s-1$ are the old classes and $y'_i,\, g'_i(x)$ are the modified versions of old and current probabilities $y_i,\, g_i(x)$:
 \begin{equation}
-    y_{o}'^{(i)}=\frac{(y_{o}^{(i)})^{1/T}}{\sum_{j} (y_{o}^{(j)})^{1/T}}, \qquad \hat{y}_{o}'^{(i)}=\frac{(\hat{y}_{o}^{(i)})^{1/T}}{\sum_{j} (\hat{y}_{o}^{(j)})^{1/T}}. \label{eq:loss:cebce2}
+    y'_i = \frac{y_i^{1/T}}{\sum_j y_j^{1/T}}, \qquad g'_i(x) = \frac{(g'_i(x))^{1/T}}{\sum_j (g'_j(x))^{1/T}}. \label{eq:loss:cebce2}
 \end{equation}
-
-$T$ is an hyper-parameter called temperature, which is set to $1$ in the standard softmax function. We use $T > 1$ to produce \emph{soft targets}, \ie, a probability distribution more equally spread among the old classes. This is in accordance with \cite{hinton:2015}, as to distill knowledge a set of soft targets with high entropy provide much more information than hard targets.
+$T$ is a hyper-parameter called temperature, which is set to $1$ in the standard softmax function. We use $T > 1$ to produce \emph{soft targets}, \ie, a probability distribution more evenly spread among the old classes. This is in accordance with \cite{hinton:2015}, as a set of soft targets with high entropy provides more information than hard targets for distilling knowledge.
 
 We set $T = 2$ as in the official Learning without Forgetting implementation. In Figure~\ref{fig:loss:plot} we compare results given by our combination of losses and BCE for both classification and distillation. Table~\ref{tab:loss} shows a $7\%$ drop of average incremental accuracy. This difference may be explained by our reasoning on the limits of CE as a classification loss for the incremental learning task. Moreover, using a sigmoid function naturally produces softer targets, since the sum of probabilities between all classes is not constrained to $1$ as it is for softmax.
 
@@ -879,7 +872,7 @@ At the end of these ablation studies, having evaluated different classification 
 \end{center}
 \end{figure*}
 
-We shift our focus to classifiers and evaluate several classification strategies. Our experiments aim at evaluating the performance of different classifiers and possibly finding a better alternative to the NME proposed by the authors of iCaRL. Therefore, we use NME as a baseline against which we compare all classifiers. The strategy we employ is to treat the network up to the second to last layer as a feature extractor $\varphi: \chi \to \mathbb{R}^{d}$, and use these features as inputs for the classifier. This is also how the authors of iCaRL implemented the NME classifier.
+We shift our focus to classifiers and evaluate several classification strategies. Our experiments aim at evaluating the performance of different classifiers and possibly finding a better alternative to the NME proposed by the authors of iCaRL. Therefore, we use NME as a baseline against which we compare all classifiers. The strategy we employ is to treat the network up to the second to last layer as a feature extractor $\varphi: \chi \to \mathbb{R}^{d}$, and use these features as inputs for the classifier. This is also how the authors of iCaRL implement the NME classifier.
 
 \begin{figure}
 \begin{tikzpicture}[scale=0.90]
@@ -1067,17 +1060,17 @@ The second classifier we evaluate is a cosine normalization layer as described i
 The authors observe that the magnitudes of the weight vectors and biases of new classes are higher than those of old classes. We are able to reproduce this harmful behaviour in iCaRL. The cosine layer solves this problem by enforcing balanced magnitudes across all classes, as illustrated in Figure~\ref{fig:classifier:cosine:features}. It replaces the last fully connected linear layer of the network, which computes the activations of its output neurons as described in (\ref{eq:1}), whereas the cosine layer measures the cosine similarity between two normalized vectors, computing the activations as (\ref{eq:2}):
 \begin{align}
     \theta_{i}^{T} \varphi(x) + b_{i} \label{eq:1}\\
-    \eta \langle \bar{\theta}_{i}, \bar{\varphi}(x) \rangle \label{eq:2}
+    \eta \, \langle \bar{\theta}_{i}, \bar{\varphi}(x) \rangle \label{eq:2}
 \end{align}
-where $\bar{v} = v/\lVert v \rVert_{2}$ denotes the L2 normalized vector and $\langle v_{1}, v_{2} \rangle = v_{1}^{T} v_{2}$ measures the cosine similarity between two normalized vectors.
+where $\bar{v} = v/\lVert v \rVert_{2}$ denotes the L2 normalized vector and $\langle \bar{v}_{1}, \bar{v}_{2} \rangle = \bar{v}_{1}^{T} \bar{v}_{2}$ measures the cosine similarity between two normalized vectors.
 
 A natural choice for the classification strategy is to use the output of the network as is. However, we may improve this method by adopting an approach similar to iCaRL. We use a modified version of the NME that takes into account the different nature of the features by using the maximum cosine similarity instead of the minimum L-2 distance between the sample and the class prototypes. In other words, we change the computation of the nearest prototype in Algorithm 1 of iCaRL to (\ref{eq:3}).
 
 \begin{equation}
-    y^{*} \gets \argmax_{y=1, \dots, t} \langle \bar{\varphi}(x), \bar{\mu}_{y} \rangle \label{eq:3}
+    i^{*} \gets \argmax_{i=1, \dots, t}\, \langle \bar{\varphi}(x), \bar{\mu}_{i} \rangle \label{eq:3}
 \end{equation}
 
-where $y^{*}$ is the predicted label, $t$ is the total number of classes observed so far and $\mu_{y}$ is the prototype vector of the $y$-th class.
+where $i^{*}$ is the predicted label, $t$ is the total number of classes observed so far and $\mu_{i}$ is the prototype vector of the $i$-th class.
 
 \paragraph{Implementation.} Firstly, we classify samples using the outputs of the cosine linear layer as they are. Then, we attempt to improve this method. Similarly to iCaRL, we extract features from the set of exemplars and compute a prototype per class. Then, we classify samples by a modified NME rule, calculating the cosine similarity between new images and prototypes.
 
@@ -1774,7 +1767,7 @@ Accuracy scores on the test set are presented in Table~\ref{tab:3}. Figure~\ref{
 \label{frds}
 In the incremental learning protocol, we assume that only a fixed amount of data from the old classes is stored, in order to maintain the memory footprint bounded. As a consequence, training steps are performed over unbalanced class distributions. One way to address this problem is to use a knowledge distillation loss. We think that another interesting way of tackling this issue is to try to maintain as much as possible a similar feature representation between the network at step $N-1$ and the one at step $N$. In order to do this, we shift our focus to the outputs of the last layer of the feature extractor, which is used to classify images at test time. Firstly, we demostrate the existence of a residual features representation drift. Then, we propose an approach that tries to limit it.
 
-To classify unseen data, iCaRL computes the mean of exemplars for all known classes. At the end of each incremental learning step, we store the class prototypes, which we suppose are representative of the features learned by the network. At step $N$ we compare the prototypes of the network with those learned at step $N-1$. The difference defining the drift is computed as mean square error (MSE) between all $64$ entries of the mean of exemplars vectors. These $64$ entries correspond to the output nodes of our feature extractor. All entries are weighted by a coefficient, defined for each label, which states the importance of a feature for that specific class, since we are only interested in avoiding drift of meaningful features (see Appendix~\ref{appendix}).
+To classify unseen data, iCaRL computes the mean of exemplars for all known classes. At the end of each incremental learning step, we store the class prototypes, which we suppose are representative of the features learned by the network. At step $N$ we compare the prototypes of the network with those learned at step $N-1$. The difference defining the drift is computed as mean square error (MSE) between all $64$ entries of the mean of exemplars vectors. These $64$ entries correspond to the output nodes of our feature extractor. All entries are weighted by a coefficient, defined for each label, which states the importance of a feature for that specific class, since we are only interested in avoiding drift of meaningful features (see Appendix~\ref{appendix}). In Figure~\ref{5:histogram} we show the drift between the representation learned at step 0 versus those learned at step 1 and 9. We can observe significant error between two consecutive steps, and we can also see that it propagates and increases over the networks.
 
 \begin{figure}
 \begin{center}
@@ -1806,23 +1799,20 @@ To classify unseen data, iCaRL computes the mean of exemplars for all known clas
 \label{5:histogram}
 \end{figure}
 
-In Figure~\ref{5:histogram} we show the drift between the representation learned at step 0 versus those learned at step 1 and 9. We can observe significant error between two consecutive steps, and we can also see that it propagates and increases over the networks.
-
 To mitigate the drift, we add a contribution to the loss which tries to minimize the distance between important features. We choose a smooth L1 loss function (\ref{eq:smoothl1}) weighted by a parameter $\alpha$ which defines the importance of this contribution:
 \begin{equation}
-\text{loss}(x, y) = \frac{1}{n} \sum_{i} z_{i}*\alpha \label{eq:smoothl1}
+\mathcal{L}_{\text{drift}} = \alpha \, \frac{1}{d} \sum_{i=1}^{d} w_i z_i \label{eq:smoothl1}
 \end{equation}
 \[
-    z_{i} =
+    z_i =
     \begin{cases}
-    0.5 (x_i - y_l)^2, & \text{if } |x_i - y_l| < 1 \\
-    |x_i - y_l| - 0.5, & \text{otherwise }
+    0.5 \; (x_i - y^L_i)^2 & \text{if } |x_i - y^L_i| < 1 \\
+    |x_i - y^L_i| - 0.5 & \text{otherwise}
     \end{cases}
 \]
-where $x_{i}$ is L2 normalized feature representation of image $i$ of the trained network, while target $y_{l}$ is the last network prototype corresponding to label $l$. $\alpha$ is an hyper-parameter to be tuned along with the learning rate.
-This loss behaves as L2 if the it falls below $1$, and as L1 otherwise.
+where $d$ is the number of extracted features, in our case $64$, $w_i$ is the weight associated to the $i$-th element, $x$ is the L2 normalized feature representation of the input image, and the $d$-dimensional target $y^L$ is the last network prototype corresponding to label $L$. $\alpha$ is a hyper-parameter to be tuned along with the learning rate. This loss behaves as L2 if it falls below $1$, and as L1 otherwise.
 
-We jointly tune $\alpha$ and the initial learning rate, which we set to $10^{-4}$ and $0.3$ respectively. We train the network for $80$ epochs, and decrease the initial learning rate by a factor of $5$ after $75$ epochs.
+We jointly tune $\alpha$ and the initial learning rate, which we set to $10^{-4}$ and $0.3$ respectively. We train the network for $80$ epochs, and decrease the initial learning rate by a factor of $5$ after $75$ epochs. In Figure~\ref{5:histogram2} we can quantitatively observe how the loss contribution that we introduced is able to mitigate drift over features. The adopted measure is effective, but results in a drop of accuracy over the incremental training steps, as we can see in Figure~\ref{105}. This can be explained by the fact that without properly balancing the selected hyper-parameters, preventing the drift also means preventing an effective learning. Nevertheless, we consider this a promising procedure, since the model may produce a more general feature representation, trying to balance with the learning and distillation needs. Despite this, due to lack of time and computational resources, we are not able to explore the problem any further.
 
 \begin{figure}
 \begin{center}
@@ -1850,11 +1840,9 @@ We jointly tune $\alpha$ and the initial learning rate, which we set to $10^{-4}
 \end{axis}
 \end{tikzpicture}
 \end{center}
-\caption{Drift reduction from net 0 to 1 and 0 to 9, comparing features representation with and without smooth L1 loss contribute over the last layer of the feature extractor.}
+\caption{Drift reduction from net 0 to 1 and 0 to 9, comparing features representation with and without smooth L1 loss contribution over the last layer of the feature extractor.}
 \label{5:histogram2}
 \end{figure}
-
-In Figure~\ref{5:histogram2} we can quantitatively observe how the loss contribution that we introduced is able to mitigate drift over features. The adopted measure is effective, but results in a drop of accuracy over the incremental training steps, as we can see in Figure~\ref{105}. This can be explained by the fact that without properly balancing the selected hyper-parameters, preventing the drift also means preventing an effective learning. Nevertheless, we consider this a promising procedure, since the model may produce a more general feature representation, trying to balance with the learning and distillation needs. Despite this, due to lack of time and computational resources, we are not able to explore the problem any further.
 
 \begin{figure}
 \begin{tikzpicture}[scale=0.9]
@@ -1926,7 +1914,7 @@ In Figure~\ref{5:histogram2} we can quantitatively observe how the loss contribu
     \addlegendentry{iCaRL preventing drift}
 \end{axis}
 \end{tikzpicture}
-\caption{iCaRL scores with feature drift distillaton loss term. Compared to the plain iCaRL framework, our implementation leads to worse incremental accuracy. This is because of the additional loss contribute that, while preserving the old representation, also prevents the network from adequately learning the new task.}
+\caption{iCaRL scores with feature drift distillaton loss term. Compared to the plain iCaRL framework, our implementation leads to worse incremental accuracy. This is because of the additional loss contribution that, while preserving the old representation, also prevents the network from adequately learning the new task.}
 \label{105}
 \end{figure}
 
