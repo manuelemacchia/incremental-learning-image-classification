@@ -4,9 +4,6 @@ from torchvision import transforms
 from torchvision import datasets
 from PIL import Image
 
-CLASS_BATCH_SIZE = 10
-
-
 class Cifar100(torch.utils.data.Dataset):
     def __init__(self, root, train, download, random_state, transform=None):
         self.train = train
@@ -20,15 +17,18 @@ class Cifar100(torch.utils.data.Dataset):
             transform=None)
 
         self.targets = np.array(self.dataset.targets)
-        self.batch_splits = self.class_batches(random_state) # Use class_batches(k:[batch labels]) to build k-th split dataset
-    
+
+        # Use class_batches(k:[batch labels]) to build k-th split dataset
+        self.batch_splits = self.class_batches(random_state)
 
     def set_classes_batch(self, batch_idx):
         self.batch_idx =  batch_idx
 
-        mask = np.isin(self.targets, self.batch_idx) # Boolean mask returning only indexes where (real) targets match an element of batch_idx 
-        idxes = np.where(mask)[0] # batch indices of interest
-        
+        # Boolean mask returning only indexes where (real) targets match an element of batch_idx 
+        mask = np.isin(self.targets, self.batch_idx) 
+
+        # Batch indices of interest
+        idxes = np.where(mask)[0]
 
         # fake_idx = index used in __getitem__ to retrieve record of interest
         # real_idx = index used in __getitem__ to return element form self.dataset
@@ -36,25 +36,24 @@ class Cifar100(torch.utils.data.Dataset):
             fake_idx: real_idx
             for fake_idx, real_idx in enumerate(idxes)
         }
+
         self.idxes = np.array(idxes)
 
-
     def class_batches(self, random_state):
-        batch_splits = dict.fromkeys(np.arange(0, CLASS_BATCH_SIZE)) # {0:None, 1:None, ... , 9:None}
+        batch_splits = dict.fromkeys(np.arange(0, 10)) # {0:None, 1:None, ... , 9:None}
 
         rs = np.random.RandomState(random_state)
         random_labels =list(range(0,  100)) # [0-99] labels
         rs.shuffle(random_labels) # randomly shuffle the labels
 
-        for i in range(CLASS_BATCH_SIZE):
+        for i in range(10):
             # Take 10-sized label batches and define the class splits
-            batch_splits[i] = random_labels[i*CLASS_BATCH_SIZE : (i+1)*CLASS_BATCH_SIZE] # {0:[1-st split classes], 1:[...], ... , 99:[...]}
+            batch_splits[i] = random_labels[i*10 : (i+1)*10] # {0:[1-st split classes], 1:[...], ... , 99:[...]}
         
         # Label mapping
         self.label_map = {k:v for v,k in enumerate(random_labels)}
 
         return batch_splits
-    
 
     def set_exemplars(self, idxes):
         self.batches_mapping.update({
@@ -66,15 +65,25 @@ class Cifar100(torch.utils.data.Dataset):
         len_dataset = len(self.batches_mapping)
         indices = list(range(len_dataset))
         split = int(np.floor(val_size * len_dataset))
-        rs = np.random.RandomState(random_state)  # seed the generator
-        # shuffle indices to get balanced distribution in training and validation set
-        rs.shuffle(indices)
-        train_indices, val_indices = indices[split:], indices[:split]
-        return train_indices, val_indices
+        
+        rs = np.random.RandomState(random_state) # Seed the generator
+        rs.shuffle(indices) # Shuffle indices to get balanced distribution in training and validation set
 
+        train_indices, val_indices = indices[split:], indices[:split]
+
+        return train_indices, val_indices
 
     def get_true_index(self, fake_idx):
         return self.batches_mapping[fake_idx]
+
+    def enable_transform(self):
+        self.is_transform_enabled = True
+
+    def disable_transform(self):
+        self.is_transform_enabled = False
+
+    def transform_status(self):
+        return self.is_transform_enabled
 
     def __len__(self):
         return len(self.batches_mapping)
@@ -93,14 +102,4 @@ class Cifar100(torch.utils.data.Dataset):
 
         mapped_label = self.label_map[label]
 
-
         return image, mapped_label
-
-    def enable_transform(self):
-        self.is_transform_enabled = True
-
-    def disable_transform(self):
-        self.is_transform_enabled = False
-
-    def transform_status(self):
-        return self.is_transform_enabled
