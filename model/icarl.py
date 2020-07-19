@@ -4,6 +4,8 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader, ConcatDataset
 from torch.backends import cudnn
 
+import numpy as np
+import numpy.ma as ma
 from math import floor
 from copy import deepcopy
 import random
@@ -275,6 +277,76 @@ class iCaRL:
 
             print(f"Extracted {len(exemplars[y])} exemplars.")
 
+        return exemplars
+
+    def construct_exemplar_set_herding(self, dataset, m):
+        """Extract m elements from a dataset by herding.
+
+        Args:
+            dataset: dataset containing a split (samples from 10 classes) from
+                which to take exemplars
+            m (int): target number of exemplars per class
+        Returns:
+            exemplars: list of samples extracted from the dataset
+        """
+
+        dataset.dataset.disable_transform()
+
+        samples = [[] for _ in range(10)]
+        for image, label in dataset:
+            label = label % 10 # Map labels to 0-9 range
+            samples[label].append(image)
+
+        dataset.dataset.enable_transform()
+
+        # Initialize exemplar sets
+        exemplars = [[] for _ in range(10)]
+
+        # Iterate over classes
+        for y in range(10):
+            print(f"Extracting exemplars from class {y} of current split... ", end="")
+
+            # Transform samples to tensors and apply normalization
+            transformed_samples = torch.zeros((len(samples[y]), 3, 32, 32)).to(self.device)
+            for i in range(len(transformed_samples)):
+                transformed_samples[i] = self.test_transform(samples[y][i])
+
+            # Extract features from samples
+            samples_features = self.extract_features(transformed_samples).to(self.device)
+
+            # Compute the feature mean of the current class
+            features_mean = samples_features.mean(dim=0)
+
+            # Initializes indices vector, containing the index of each exemplar chosen
+            idx = []
+
+            # See iCaRL algorithm 4
+            for k in range(1, m+1): # k = 1, ..., m -- Choose m exemplars
+                if k == 1: # No exemplars chosen yet, sum to 0 vector
+                    f_sum = torch.zeros(64).to(self.device)
+                else: # Sum of features of all exemplars chosen until now (j = 1, ..., k-1)
+                    f_sum = samples_features[idx].sum(dim=0)
+
+                # Compute argument of argmin function
+                f_arg = torch.norm(features_mean - 1/k * samples_features + f_sum, dim=1)
+
+                # Mask exemplars that were already taken, as we do not want to store the
+                # same exemplar more than once
+                mask = np.zeros(len(f_arg), int)
+                mask[idx] = 1
+                f_arg_masked = ma.masked_array(f_arg.cpu().detach().numpy(), mask=mask)
+
+                # Compute the nearest available exemplar
+                exemplar_idx = np.argmin(f_arg_masked)
+
+                idx.append(exemplar_idx)
+            
+            # Save exemplars to exemplar set
+            for i in idx:
+                exemplars[y].append(samples[y][i])
+            
+            print(f"Extracted {len(exemplars[y])} exemplars.")
+            
         return exemplars
 
     def reduce_exemplar_set(self, exemplar_set, m):
