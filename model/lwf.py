@@ -165,7 +165,7 @@ class LWF():
 
         print(f"Train loss: {train_loss}, Train accuracy: {train_accuracy}")
 
-        return (train_loss, train_accuracy)
+        return train_loss, train_accuracy
 
     def train(self, num_epochs):
         """Train the network for a specified number of epochs, and save
@@ -208,8 +208,7 @@ class LWF():
 
             print("")
 
-        return (train_loss, train_accuracy,
-                val_loss, val_accuracy)
+        return train_loss, train_accuracy, val_loss, val_accuracy
 
     def validate(self):
         """Validate the model.
@@ -281,7 +280,7 @@ class LWF():
         print(
             f"Validation loss: {val_loss}, Validation accuracy: {val_accuracy}")
 
-        return (val_loss, val_accuracy)
+        return val_loss, val_accuracy
 
     def test(self):
         """Test the model.
@@ -296,6 +295,8 @@ class LWF():
 
         all_preds = torch.tensor([])  # to store all predictions
         all_preds = all_preds.type(torch.LongTensor)
+        all_targets = torch.tensor([])
+        all_targets = all_targets.type(torch.LongTensor)
 
         for images, labels in self.test_dataloader:
             images = images.to(self.device)
@@ -311,14 +312,18 @@ class LWF():
             # Update Corrects
             running_corrects += torch.sum(preds == labels.data).data.item()
 
+            all_targets = torch.cat(
+                (all_targets.to(self.device), labels.to(self.device)), dim=0
+            )
+
             # Append batch predictions
             all_preds = torch.cat(
                 (all_preds.to(self.device), preds.to(self.device)), dim=0
-        )
+            )
 
         # Calculate accuracy
         accuracy = running_corrects / float(total)
 
         print(f"Test accuracy: {accuracy}")
 
-        return (accuracy, all_preds)
+        return accuracy, all_targets, all_preds
