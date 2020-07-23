@@ -111,7 +111,6 @@ def test_scores(test_accuracy, save_directory=None):
     # Layout
     plt.tight_layout()
 
-    ax.legend()
     ax.grid(True)
 
     # Save image if directory is specified
