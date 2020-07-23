@@ -32,6 +32,10 @@ def image_grid(images, one_channel=False):
     else:
         plt.imshow(np.transpose(npimg, (1, 2, 0)))
 
+def compute_scores(logs, key):
+    score = [[logs[run_i][i][key] for i in range(10)] for run_i in range(3)]
+    score = np.array(score)
+    return np.array([train_loss.mean(0), train_loss.std(0)]).transpose()
 
 def train_val_scores(train_loss, train_accuracy, validation_loss, validation_accuracy, save_directory=None):
     """Plot loss and accuracy for training and validation
