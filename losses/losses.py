@@ -76,6 +76,35 @@ class DKHLoss(nn.Module):
     return loss
     
     return loss
+  
+  
+# CE for classification, BCE for distillation
+class CEBCELoss(nn.Module):
+
+  def __init__(self):
+    super(CEBCELoss, self).__init__()
+    self.dist_criterion = nn.BCEWithLogitsLoss()
+    self.clf_criterion = nn.CrossEntropyLoss()
+
+  def forward(self, outputs, targets):
+    ''' Args:
+        outputs: torch.tensor(). Size = [128, num_classes]. Use slicing to separate distillation and classification parts.
+        targets: torch.tensor(). Size = [128, num_classes]. Use slicing to separate distillation and classification parts.
+    '''
+    num_classes = outputs.size(1) 
+    
+    self.clf_criterion(outputs[:, :num_classes-10:], targets[:, num_classes-10:])
+    
+    if num_classes == 10:
+      return clf_loss
+    
+    dist_loss = self.dist_criterion(outputs[:, :num_classes-10], targets[:, :num_classes-10])
+    
+    dist = (num_classes - 10)/num_classes
+    clf = 10/num_classes
+    
+    loss = clf*clf_loss + dist*dist_loss
+    return loss
     
 # @DEBUG
 # distillation
