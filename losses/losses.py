@@ -2,28 +2,28 @@ import torch.nn as nn
 import torch
 
 # classification
-class FMLoss(nn.Module):
+class AsymLoss(nn.Module):
 
-  def __init__(self, weight = None, reduction = 'mean'):
-    super(FMLoss, self).__init__()
+  def __init__(self, dist_criterion):
+    super(AsymLoss, self).__init__()
+    self.dist_criterion = dist_criterion
 
   def forward(self, outputs, targets):
-    '''Args:
-    outputs: torch.tensor(). Size = [128, num_classes]. Use slicing to separate distillation and classification parts.
-    targets: torch.tensor(). Size = [128, num_classes]. Use slicing to separate distillation and classification parts.
+    ''' Args:
+        outputs: torch.tensor(). Size = [128, num_classes]. Use slicing to separate distillation and classification parts.
+        targets: torch.tensor(). Size = [128, num_classes]. Use slicing to separate distillation and classification parts.
     '''
     num_classes = outputs.size(1) 
     
     EPS = 1e-10
     sigmoid= nn.Sigmoid()
-    clf_loss = torch.mean(-targets[:, :num_classes-10]*torch.log(sigmoid(outputs[:, num_classes-10:])+EPS)\
+    clf_loss = torch.mean(-targets[:, num_classes-10:]*torch.log(sigmoid(outputs[:, num_classes-10:])+EPS)\
                         + (1-targets[:, num_classes-10:])* torch.pow(sigmoid(outputs[:, num_classes-10:]), 2))
     
     if num_classes == 10:
       return clf_loss
     
-    dist_criterion = nn.BCEWithLogitsLoss()
-    dist_loss = dist_criterion(outputs[:, :num_classes-10], targets[:, :num_classes-10])
+    dist_loss = self.dist_criterion(outputs[:, :num_classes-10], targets[:, :num_classes-10])
     
     dist = (num_classes - 10)/num_classes
     clf = 10/num_classes
@@ -34,18 +34,20 @@ class FMLoss(nn.Module):
 # Old outputs targets are given BCE likewise
 # Implementation of https://arxiv.org/abs/1503.02531
 class DKHLoss(nn.Module):
-  '''
-  Distillation Knowledge Hinton Loss
-  '''
+  """
+     Distillation Knowledge Hinton Loss
+     https://arxiv.org/abs/1503.02531
+  """
   
-  def __init__(self, weight = None, reduction = 'mean', temperature = 2):
-    self.T = temperature # 2 by default as in LWF paper's implementation
+  def __init__(self, dist_criterion, temperature = 2):
     super(DKHLoss, self).__init__()
+    self.T = temperature # 2 by default as in LWF paper's implementation
+    self.dist_criterion = dist_criterion
     
   def forward(self, outputs, targets):
     """ Args:
-        outputs = new net outputs on old classes
-        targets = old_ne outputs on old_classes
+        outputs: torch.tensor(). Size = [128, num_classes]. Use slicing to separate distillation and classification parts.
+        targets: torch.tensor(). Size = [128, num_classes]. Use slicing to separate distillation and classification parts.
 
         Computes the distillation loss (cross-entropy).
         xentropy(y, t) = kl_div(y, t) + entropy(t)
@@ -54,20 +56,32 @@ class DKHLoss(nn.Module):
         \delta_y{xentropy(y, t)} = \delta_y{kl_div(y, t)}.
         scale is required as kl_div normalizes by nelements and not batch size.
     """
+
+    num_classes = outputs.size(1)
+    
     softmax = nn.Softmax(dim=0)
     log_softmax = nn.LogSoftmax(dim=0)
 
-    loss = torch.mean(-softmax(targets/self.T)*torch.log(softmax(outputs/self.T)))
+    clf_loss = torch.mean(-softmax(targets[:, num_classes-10:]/self.T)*torch.log(softmax(outputs[:, num_classes-10:]/self.T)))
 
-    # Try different T value to see how values changes
+    if num_classes == 10:
+      return clf_loss
+    
+    dist_loss = self.dist_criterion(outputs[:, :num_classes-10], targets[:, :num_classes-10])
+    
+    dist = (num_classes - 10)/num_classes
+    clf = 10/num_classes
+    
+    loss = clf*clf_loss + dist*dist_loss
+    return loss
     
     return loss
     
- 
+# @DEBUG
 # distillation
 class LFCLoss(nn.Module):
 
-  def __init__(self, weight = None, reduction = 'mean'):
+  def __init__(self, clf_criterion):
     super(LFCLoss, self).__init__()
 
   def forward(self, new_outputs, new_targets, old_features, new_features, num_classes):
@@ -102,10 +116,7 @@ class LFCLoss(nn.Module):
     
     return loss
     
-
-
-
-
+# @DEBUG
 # distillation - are all contributes needed? randomly remove some contributions to the loss
 class MaskBCELoss(nn.Module):
   
@@ -143,7 +154,7 @@ class MaskBCELoss(nn.Module):
 
     return loss
     
-    
+# @DEBUG    
 # distillation
 class DFMLoss(nn.Module): 
   def __init__(self, weight = None, reduction = 'mean'):
@@ -170,7 +181,9 @@ class DFMSquaredLoss(nn.Module):
     BETA = 3
     loss = torch.mean(BETA*(targets*torch.pow((1-sigmoid(outputs)), 2) +(1-targets)*torch.pow(sigmoid(outputs), 2)))
     return loss
-    
+
+  
+# @DEBUG
 # distillation  
 class BCEHarshLoss(nn.Module):
   def __init__(self, weight = None, reduction = 'mean'):
